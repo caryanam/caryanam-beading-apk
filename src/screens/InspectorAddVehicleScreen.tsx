@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -787,12 +787,12 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
   const [basicDetails, setBasicDetails] = useState({
     customerName: '',
     customerMobile: '',
-    ownerName: '1st Owner',
+    ownerName: '',
     brand: '',
     model: '',
     variant: '',
-    fuel: 'Petrol',
-    transmission: 'Manual (MT)',
+    fuel: '',
+    transmission: '',
     year: '',
     regYear: '',
     regNo: '',
@@ -802,12 +802,12 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
     evalDate: new Date().toLocaleDateString('en-US'),
     location: '',
     rtoInformation: '',
-    rsAvailability: 'Available (Yes)',
-    duplicateKey: 'Yes',
-    rtoNocIssued: 'No',
-    underHypothecation: 'No',
-    mismatchInRc: 'No Mismatch (Clean)',
-    roadTaxPaid: 'Individual / One Time',
+    rsAvailability: '',
+    duplicateKey: '',
+    rtoNocIssued: '',
+    underHypothecation: '',
+    mismatchInRc: '',
+    roadTaxPaid: '',
     fitnessUpto: '',
   });
   const [suggestedPrice, setSuggestedPrice] = useState('');
@@ -1024,10 +1024,13 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
     [showToast],
   );
 
+  const isLoadedRef = useRef(false);
+
   useEffect(() => {
-    if (routeId) {
+    if (routeId && !isLoadedRef.current) {
       const idNum = Number(routeId);
       if (!isNaN(idNum)) {
+        isLoadedRef.current = true;
         setInspectionId(idNum);
         loadInspectionData(idNum);
       }
@@ -1150,6 +1153,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
       if (!basicDetails.variant) newErrors.variant = 'Model Variant is required.';
       else if (basicDetails.variant.trim().length < 2) newErrors.variant = 'Model Variant must be at least 2 characters.';
       if (!basicDetails.year) newErrors.year = 'Manufacturing Year is required.';
+      if (!basicDetails.regYear) newErrors.regYear = 'Registration Year is required.';
       if (!basicDetails.fuel) newErrors.fuel = 'Fuel Type is required.';
       if (!basicDetails.transmission) newErrors.transmission = 'Transmission is required.';
       if (!basicDetails.odometer) newErrors.odometer = 'Odometer Reading is required.';
@@ -1157,6 +1161,15 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
       if (!basicDetails.insurance) newErrors.insurance = 'Insurance Validity is required.';
       if (!suggestedPrice) newErrors.suggestedPrice = 'Suggested Price is required.';
       else if (isNaN(Number(suggestedPrice.replace(/,/g, '')))) newErrors.suggestedPrice = 'Please enter a valid numeric price.';
+      if (!basicDetails.location) newErrors.location = 'Location is required.';
+      if (!basicDetails.rtoInformation) newErrors.rtoInformation = 'RTO Information is required.';
+      if (!basicDetails.rsAvailability) newErrors.rsAvailability = 'RS Availability status is required.';
+      if (!basicDetails.duplicateKey) newErrors.duplicateKey = 'Duplicate Key Availability status is required.';
+      if (!basicDetails.rtoNocIssued) newErrors.rtoNocIssued = 'RTO NOC Issued status is required.';
+      if (!basicDetails.underHypothecation) newErrors.underHypothecation = 'Under Hypothecation status is required.';
+      if (!basicDetails.mismatchInRc) newErrors.mismatchInRc = 'Mismatch in RC status is required.';
+      if (!basicDetails.roadTaxPaid) newErrors.roadTaxPaid = 'Road Tax Paid status is required.';
+      if (!basicDetails.fitnessUpto) newErrors.fitnessUpto = 'Fitness Valid Upto Date is required.';
     } else if (stepIndex === 1) {
       const extSlots = ['frontSide', 'rightSide', 'rearSide', 'leftSide', 'roofTop'];
       extSlots.forEach((slot) => {
@@ -1639,6 +1652,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       value={basicDetails.regYear}
                       options={years}
                       placeholder="Select Registration Year"
+                      error={errors.regYear}
                       onChange={(v) => setBasic('regYear', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1647,6 +1661,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Fuel Type"
                       value={basicDetails.fuel}
                       options={['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric', 'Hybrid']}
+                      placeholder="Select Fuel Type"
                       error={errors.fuel}
                       onChange={(v) => setBasic('fuel', v)}
                       colors={colors}
@@ -1656,6 +1671,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Transmission"
                       value={basicDetails.transmission}
                       options={['Manual (MT)', 'Automatic (AT)']}
+                      placeholder="Select Transmission"
                       error={errors.transmission}
                       onChange={(v) => setBasic('transmission', v)}
                       colors={colors}
@@ -1675,6 +1691,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Owner Profile Status"
                       value={basicDetails.ownerName}
                       options={['1st Owner', '2nd Owner', '3rd Owner', '4th Owner', '5th Owner or More']}
+                      placeholder="Select Owner Profile Status"
                       error={errors.ownerName}
                       onChange={(v) => setBasic('ownerName', v)}
                       colors={colors}
@@ -1704,6 +1721,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Location"
                       value={basicDetails.location}
                       placeholder="e.g. Mumbai, Maharashtra"
+                      error={errors.location}
                       onChange={(v) => setBasic('location', v)}
                       colors={colors}
                     />
@@ -1711,6 +1729,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="RTO Information"
                       value={basicDetails.rtoInformation}
                       placeholder="e.g. MH12 Pune RTO"
+                      error={errors.rtoInformation}
                       onChange={(v) => setBasic('rtoInformation', v)}
                       colors={colors}
                     />
@@ -1718,6 +1737,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="RS Availability (Roadside Assistance)"
                       value={basicDetails.rsAvailability}
                       options={['Available (Yes)', 'Not Available (No)']}
+                      placeholder="Select RS Availability"
+                      error={errors.rsAvailability}
                       onChange={(v) => setBasic('rsAvailability', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1726,6 +1747,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Duplicate Key Availability"
                       value={basicDetails.duplicateKey}
                       options={['Yes', 'No']}
+                      placeholder="Select Duplicate Key Availability"
+                      error={errors.duplicateKey}
                       onChange={(v) => setBasic('duplicateKey', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1734,6 +1757,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="RTO NOC Issued"
                       value={basicDetails.rtoNocIssued}
                       options={['Yes', 'No']}
+                      placeholder="Select RTO NOC Status"
+                      error={errors.rtoNocIssued}
                       onChange={(v) => setBasic('rtoNocIssued', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1742,6 +1767,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Under Hypothecation"
                       value={basicDetails.underHypothecation}
                       options={['Yes', 'No', 'N/A']}
+                      placeholder="Select Hypothecation Status"
+                      error={errors.underHypothecation}
                       onChange={(v) => setBasic('underHypothecation', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1750,6 +1777,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Mismatch in RC"
                       value={basicDetails.mismatchInRc}
                       options={['No Mismatch (Clean)', 'Mismatch (Yes)']}
+                      placeholder="Select RC Mismatch Status"
+                      error={errors.mismatchInRc}
                       onChange={(v) => setBasic('mismatchInRc', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1758,6 +1787,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Road Tax Paid Status"
                       value={basicDetails.roadTaxPaid}
                       options={['Individual / One Time', 'Limited Period', 'N/A', 'Paid']}
+                      placeholder="Select Road Tax Paid Status"
+                      error={errors.roadTaxPaid}
                       onChange={(v) => setBasic('roadTaxPaid', v)}
                       colors={colors}
                       isDark={isDark}
@@ -1766,6 +1797,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       label="Fitness Valid Upto Date"
                       value={basicDetails.fitnessUpto}
                       placeholder="Select Fitness Expiry Date (YYYY-MM-DD)"
+                      error={errors.fitnessUpto}
                       onChange={(v) => setBasic('fitnessUpto', v)}
                       colors={colors}
                       isDark={isDark}
