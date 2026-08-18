@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   Video,
   X,
+  Calendar,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { inspectorService, resolveMediaUrl } from '../services/inspectorService';
@@ -580,6 +582,192 @@ const PickerFieldMini: React.FC<PickerFieldMiniProps> = ({ value, options, onSel
   );
 };
 
+interface DatePickerFieldProps {
+  label: string;
+  value: string;
+  placeholder?: string;
+  error?: string;
+  onChange: (val: string) => void;
+  colors: any;
+  isDark: boolean;
+}
+
+const parseDateStr = (str: string) => {
+  if (!str) return new Date();
+  const ddMMyyyy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(str.trim());
+  if (ddMMyyyy) {
+    const [, d, m, y] = ddMMyyyy;
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  }
+  const parsed = new Date(str);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const DatePickerField: React.FC<DatePickerFieldProps> = ({
+  label,
+  value,
+  placeholder,
+  error,
+  onChange,
+  colors,
+  isDark,
+}) => {
+  const [open, setOpen] = useState(false);
+  const now = new Date();
+
+  const initialDate = parseDateStr(value);
+  const [currYear, setCurrYear] = useState(initialDate.getFullYear());
+  const [currMonth, setCurrMonth] = useState(initialDate.getMonth());
+  const [selectedDay, setSelectedDay] = useState(initialDate.getDate());
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
+  const firstDayOfWeek = new Date(currYear, currMonth, 1).getDay();
+
+  const handlePrevMonth = () => {
+    if (currMonth === 0) {
+      setCurrMonth(11);
+      setCurrYear((y) => y - 1);
+    } else {
+      setCurrMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currMonth === 11) {
+      setCurrMonth(0);
+      setCurrYear((y) => y + 1);
+    } else {
+      setCurrMonth((m) => m + 1);
+    }
+  };
+
+  const handleSelectDay = (day: number) => {
+    setSelectedDay(day);
+    const mStr = String(currMonth + 1).padStart(2, '0');
+    const dStr = String(day).padStart(2, '0');
+    const formatted = `${dStr}-${mStr}-${currYear}`;
+    onChange(formatted);
+    setOpen(false);
+  };
+
+  const formattedDisplay = value || '';
+
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{label}</Text>
+      <TouchableOpacity
+        style={[
+          styles.field,
+          { borderColor: error ? '#F43F5E' : colors.border, backgroundColor: colors.card },
+        ]}
+        onPress={() => setOpen(true)}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.fieldValue, formattedDisplay ? { color: colors.foreground } : { color: colors.mutedForeground }]}>
+          {formattedDisplay || placeholder || 'DD-MM-YYYY'}
+        </Text>
+        <Calendar size={18} color="#FFC700" />
+      </TouchableOpacity>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+
+      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
+        <View style={styles.pickerOverlay}>
+          <View style={[styles.pickerCard, { backgroundColor: isDark ? '#12141C' : '#FFFFFF', borderColor: colors.border, maxWidth: 350 }]}>
+            <View style={styles.pickerHeader}>
+              <Text style={[styles.pickerTitle, { color: colors.foreground }]}>📅 {label}</Text>
+              <TouchableOpacity onPress={() => setOpen(false)}>
+                <X size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 10 }}>
+              <TouchableOpacity onPress={handlePrevMonth} style={{ padding: 7, borderRadius: 8, backgroundColor: isDark ? '#1F2430' : '#F0F2F6' }}>
+                <ChevronLeft size={16} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 13.5, fontWeight: '900', color: '#FFC700' }}>
+                {monthNames[currMonth]} {currYear}
+              </Text>
+              <TouchableOpacity onPress={handleNextMonth} style={{ padding: 7, borderRadius: 8, backgroundColor: isDark ? '#1F2430' : '#F0F2F6' }}>
+                <ChevronRight size={16} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                <Text key={d} style={{ width: 36, textAlign: 'center', fontSize: 11, fontWeight: '800', color: colors.mutedForeground }}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                <View key={`empty-${i}`} style={{ width: `${100 / 7}%`, height: 36 }} />
+              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+                const isSelected = selectedDay === d && initialDate.getMonth() === currMonth && initialDate.getFullYear() === currYear;
+                return (
+                  <TouchableOpacity
+                    key={`day-${d}`}
+                    style={{
+                      width: `${100 / 7}%`,
+                      height: 36,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => handleSelectDay(d)}
+                  >
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: isSelected ? '#FFC700' : 'transparent',
+                      }}
+                    >
+                      <Text style={{ fontSize: 11.5, fontWeight: isSelected ? '900' : '600', color: isSelected ? '#0D0E12' : colors.foreground }}>
+                        {d}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+              {['1 Year', '2 Years', '5 Years'].map((preset) => {
+                const addY = parseInt(preset);
+                return (
+                  <TouchableOpacity
+                    key={preset}
+                    style={{ flex: 1, paddingVertical: 7, borderRadius: 8, backgroundColor: 'rgba(255,199,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,199,0,0.3)', alignItems: 'center' }}
+                    onPress={() => {
+                      const targetY = now.getFullYear() + addY;
+                      const mStr = String(now.getMonth() + 1).padStart(2, '0');
+                      const dStr = String(now.getDate()).padStart(2, '0');
+                      onChange(`${dStr}-${mStr}-${targetY}`);
+                      setOpen(false);
+                    }}
+                  >
+                    <Text style={{ fontSize: 10.5, fontWeight: '900', color: '#FFC700' }}>+{preset}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
 /* ── Main screen ── */
 
 export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps> = ({ navigation, route }) => {
@@ -606,11 +794,21 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
     fuel: 'Petrol',
     transmission: 'Manual (MT)',
     year: '',
+    regYear: '',
     regNo: '',
     odometer: '',
     insurance: '',
     evaluator: '',
     evalDate: new Date().toLocaleDateString('en-US'),
+    location: '',
+    rtoInformation: '',
+    rsAvailability: 'Available (Yes)',
+    duplicateKey: 'Yes',
+    rtoNocIssued: 'No',
+    underHypothecation: 'No',
+    mismatchInRc: 'No Mismatch (Clean)',
+    roadTaxPaid: 'Individual / One Time',
+    fitnessUpto: '',
   });
   const [suggestedPrice, setSuggestedPrice] = useState('');
 
@@ -667,11 +865,21 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
               fuel: v.fuelType || 'Petrol',
               transmission: v.transmission || 'Manual (MT)',
               year: v.manufacturingYear ? v.manufacturingYear.toString() : '',
+              regYear: v.registrationYear ? v.registrationYear.toString() : '',
               regNo: v.vehicleNumber || '',
               odometer: v.odometerReading ? v.odometerReading.toString() : '',
               insurance: v.insuranceStatus || '',
               evaluator: v.inspectorCode || '',
               evalDate: v.inspectionDate ? new Date(v.inspectionDate).toLocaleDateString('en-US') : new Date().toLocaleDateString('en-US'),
+              location: v.location || '',
+              rtoInformation: v.rtoInformation || v.rto || '',
+              rsAvailability: v.rsAvailability || v.roadsideAssistance || 'Available (Yes)',
+              duplicateKey: v.duplicateKey || 'Yes',
+              rtoNocIssued: v.rtoNocIssued || v.rtoNoc || 'No',
+              underHypothecation: v.underHypothecation || v.hypothecation || 'No',
+              mismatchInRc: v.mismatchInRc || v.rcMismatch || 'No Mismatch (Clean)',
+              roadTaxPaid: v.roadTaxPaid || v.roadTax || 'Individual / One Time',
+              fitnessUpto: v.fitnessUpto || v.fitnessDate || '',
             });
             setSuggestedPrice(v.suggestedPrice ? v.suggestedPrice.toLocaleString('en-IN') : '');
           }
@@ -1032,12 +1240,22 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
           model: basicDetails.model,
           variant: basicDetails.variant,
           manufacturingYear: parseInt(basicDetails.year) || undefined,
+          registrationYear: parseInt(basicDetails.regYear) || undefined,
           fuelType: basicDetails.fuel,
           transmission: basicDetails.transmission,
           odometerReading: parseInt(basicDetails.odometer) || undefined,
           insuranceStatus: basicDetails.insurance,
           inspectorCode: basicDetails.evaluator || '',
           suggestedPrice: parseFloat(suggestedPrice.replace(/,/g, '')) || undefined,
+          location: basicDetails.location,
+          rtoInformation: basicDetails.rtoInformation,
+          rsAvailability: basicDetails.rsAvailability,
+          duplicateKey: basicDetails.duplicateKey,
+          rtoNocIssued: basicDetails.rtoNocIssued,
+          underHypothecation: basicDetails.underHypothecation,
+          mismatchInRc: basicDetails.mismatchInRc,
+          roadTaxPaid: basicDetails.roadTaxPaid,
+          fitnessUpto: basicDetails.fitnessUpto,
         },
         exteriorPanelDetails: exteriorPanels.map((panelName) => ({
           panelName,
@@ -1417,6 +1635,15 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       isDark={isDark}
                     />
                     <PickerField
+                      label="Registration Year"
+                      value={basicDetails.regYear}
+                      options={years}
+                      placeholder="Select Registration Year"
+                      onChange={(v) => setBasic('regYear', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
                       label="Fuel Type"
                       value={basicDetails.fuel}
                       options={['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric', 'Hybrid']}
@@ -1472,6 +1699,76 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                       numericOnly
                       onChange={handleSuggestedPriceChange}
                       colors={colors}
+                    />
+                    <TextField
+                      label="Location"
+                      value={basicDetails.location}
+                      placeholder="e.g. Mumbai, Maharashtra"
+                      onChange={(v) => setBasic('location', v)}
+                      colors={colors}
+                    />
+                    <TextField
+                      label="RTO Information"
+                      value={basicDetails.rtoInformation}
+                      placeholder="e.g. MH12 Pune RTO"
+                      onChange={(v) => setBasic('rtoInformation', v)}
+                      colors={colors}
+                    />
+                    <PickerField
+                      label="RS Availability (Roadside Assistance)"
+                      value={basicDetails.rsAvailability}
+                      options={['Available (Yes)', 'Not Available (No)']}
+                      onChange={(v) => setBasic('rsAvailability', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
+                      label="Duplicate Key Availability"
+                      value={basicDetails.duplicateKey}
+                      options={['Yes', 'No']}
+                      onChange={(v) => setBasic('duplicateKey', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
+                      label="RTO NOC Issued"
+                      value={basicDetails.rtoNocIssued}
+                      options={['Yes', 'No']}
+                      onChange={(v) => setBasic('rtoNocIssued', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
+                      label="Under Hypothecation"
+                      value={basicDetails.underHypothecation}
+                      options={['Yes', 'No', 'N/A']}
+                      onChange={(v) => setBasic('underHypothecation', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
+                      label="Mismatch in RC"
+                      value={basicDetails.mismatchInRc}
+                      options={['No Mismatch (Clean)', 'Mismatch (Yes)']}
+                      onChange={(v) => setBasic('mismatchInRc', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <PickerField
+                      label="Road Tax Paid Status"
+                      value={basicDetails.roadTaxPaid}
+                      options={['Individual / One Time', 'Limited Period', 'N/A', 'Paid']}
+                      onChange={(v) => setBasic('roadTaxPaid', v)}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                    <DatePickerField
+                      label="Fitness Valid Upto Date"
+                      value={basicDetails.fitnessUpto}
+                      placeholder="Select Fitness Expiry Date (YYYY-MM-DD)"
+                      onChange={(v) => setBasic('fitnessUpto', v)}
+                      colors={colors}
+                      isDark={isDark}
                     />
                   </View>
                 </View>
@@ -2072,7 +2369,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   checkItem: {
-    width: '48%',
+    width: '100%',
     borderWidth: 1,
     borderRadius: 14,
     padding: 10,
@@ -2164,7 +2461,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   photoSlotWrap: {
-    width: '48%',
+    width: '100%',
     marginBottom: 4,
   },
   photoSlotHeader: {

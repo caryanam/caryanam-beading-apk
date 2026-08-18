@@ -108,7 +108,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
   const isDark = theme === 'dark';
 
   const inspectorOptions = Array.from(
-    new Set(inspections.map((i) => i.inspectorName).filter((name): name is string => Boolean(name && name.trim())))
+    new Set(inspections.map((i) => (i.inspectorName || i.inspector)).filter((name): name is string => Boolean(name && String(name).trim())))
   ).sort();
 
   const fetchInspections = async () => {
@@ -184,11 +184,22 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
   };
 
   const getStatusCount = (status: string) => {
-    if (status === 'All') return inspections.length;
-    return inspections.filter((v) => (v.status || '').toUpperCase() === status.toUpperCase()).length;
+    let list = inspections;
+    if (selectedInspector) {
+      list = list.filter((v) => (v.inspectorName || v.inspector || '').trim().toLowerCase() === selectedInspector.trim().toLowerCase());
+    }
+    if (status === 'All') return list.length;
+    return list.filter((v) => (v.status || '').toUpperCase() === status.toUpperCase()).length;
   };
 
   const filteredInspections = inspections.filter((ins) => {
+    // Inspector filter
+    if (selectedInspector) {
+      const insName = (ins.inspectorName || ins.inspector || '').trim().toLowerCase();
+      if (insName !== selectedInspector.trim().toLowerCase()) {
+        return false;
+      }
+    }
     // Status filter
     if (statusFilter !== 'All' && (ins.status || '').toUpperCase() !== statusFilter.toUpperCase()) {
       return false;
@@ -202,7 +213,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
         ins.variant || '',
         ins.vehicleNumber || '',
         ins.ownerName || '',
-        ins.inspectorName || '',
+        ins.inspectorName || ins.inspector || '',
       ].join(' ').toLowerCase();
       return haystack.includes(q);
     }

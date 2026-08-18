@@ -49,7 +49,7 @@ export const SessionExpiredModal: React.FC<SessionExpiredModalProps> = ({ onLogi
   };
 
   return (
-    <Modal visible={!!expiredRole} transparent animationType="fade" onRequestClose={() => {}}>
+    <Modal visible={!!expiredRole} transparent animationType="fade" onRequestClose={() => { }}>
       <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.iconBox}>

@@ -125,6 +125,21 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     }, 150);
   };
 
+  const handleHeaderClick = () => {
+    const role = user?.role ? String(user.role).toLowerCase() : '';
+    if (role === 'inspector' || currentRouteName.startsWith('Inspector')) {
+      onClose();
+      setTimeout(() => {
+        navigation.navigate('InspectorProfile');
+      }, 150);
+    } else if (role === 'dealer' || currentRouteName.startsWith('Dealer')) {
+      onClose();
+      setTimeout(() => {
+        navigation.navigate('DealerProfile');
+      }, 150);
+    }
+  };
+
   if (!visible) return null;
 
   const isDashboardRoute =
@@ -222,7 +237,12 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
 
             {/* Header */}
             <View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
-              <View style={styles.brandRow}>
+              <TouchableOpacity
+                style={styles.brandRow}
+                onPress={handleHeaderClick}
+                activeOpacity={user ? 0.7 : 1}
+                disabled={!user}
+              >
                 <View style={[styles.logoContainer, { borderColor: colors.primary }]}>
                   <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="cover" />
                 </View>
@@ -273,7 +293,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                     </Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
                 <X size={20} color={colors.foreground} />

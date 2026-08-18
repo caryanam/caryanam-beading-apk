@@ -1,3 +1,6 @@
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { apiClient, API_BASE_URL } from '../config/api';
 import axios from 'axios';
 
@@ -114,5 +117,72 @@ export const dealerService = {
   async markAllNotificationsAsRead() {
     const res = await apiClient.put('/api/dealer/notifications/mark-all-read');
     return res.data;
+  },
+
+  // Download & open dealer inspection PDF report (without inspector or customer contact details)
+  async downloadDealerPdf(id: number) {
+    const sessionData = await AsyncStorage.getItem('user_session');
+    const session = sessionData ? JSON.parse(sessionData) : null;
+    const token = session?.token || session?.accessToken || session?.user?.token || session?.jwt || '';
+
+    if (!token) {
+      throw new Error('Please login to download reports.');
+    }
+
+    const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/dealer/inspection/${id}/pdf`;
+    const filename = `Inspection_Report_${id}.pdf`;
+
+    const docDir = ReactNativeBlobUtil.fs.dirs.DocumentDir;
+    const targetPath = `${docDir}/${filename}`;
+
+    try {
+      const exists = await ReactNativeBlobUtil.fs.exists(targetPath);
+      if (exists) {
+        await ReactNativeBlobUtil.fs.unlink(targetPath);
+      }
+    } catch {
+      // ignore
+    }
+
+    const configOptions = Platform.OS === 'android'
+      ? {
+        fileCache: true,
+        path: targetPath,
+        appendExt: 'pdf',
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
+          description: `Inspection Report #${id}`,
+          title: filename,
+          mime: 'application/pdf',
+          mediaScannable: true,
+        },
+      }
+      : {
+        fileCache: true,
+        path: targetPath,
+        appendExt: 'pdf',
+      };
+
+    const res = await ReactNativeBlobUtil.config(configOptions).fetch('GET', url, {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/pdf',
+    });
+
+    if (Platform.OS === 'android') {
+      try {
+        await ReactNativeBlobUtil.fs.scanFile([{ path: targetPath, mime: 'application/pdf' }]);
+      } catch {
+        // ignore
+      }
+      try {
+        await ReactNativeBlobUtil.android.actionViewIntent(targetPath, 'application/pdf');
+      } catch (e: any) {
+        console.warn('Could not launch PDF viewer intent:', e);
+      }
+    } else {
+      ReactNativeBlobUtil.ios.openDocument(res.data);
+    }
   },
 };

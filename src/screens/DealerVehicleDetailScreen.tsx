@@ -5,6 +5,7 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Alert,
   ActivityIndicator,
   Image,
   TextInput,
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Heart,
+  Download,
   Zap,
   Clock,
   ShieldCheck,
@@ -33,12 +35,18 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  X,
-  Video,
+  Video as VideoIcon,
   Play,
+  X,
+  Pause,
+  Volume2,
   CircleCheckBig,
   Send,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from 'lucide-react-native';
+import Video from 'react-native-video';
 import { dealerService } from '../services/dealerService';
 import { adminService } from '../services/adminService';
 import { authService } from '../services/authService';
@@ -109,13 +117,38 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   const [remaining, setRemaining] = useState('');
   const [isFavourite, setIsFavourite] = useState(false);
   const [favouriteLoading, setFavouriteLoading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [submittingBid, setSubmittingBid] = useState(false);
+  const [playingVideoTitle, setPlayingVideoTitle] = useState<string | null>(null);
+  const [isCardVideoPlaying, setIsCardVideoPlaying] = useState<boolean>(false);
+  const [cardVideoProgress, setCardVideoProgress] = useState<number>(0);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-  const [activeVideoModalUrl, setActiveVideoModalUrl] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [zoomScale, setZoomScale] = useState<number>(1.0);
+  const [activeTab, setActiveTab] = useState('car_documents');
   const [dealerReplyText, setDealerReplyText] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isCardVideoPlaying) {
+      interval = setInterval(() => {
+        setCardVideoProgress((prev) => (prev >= 100 ? 0 : prev + 2.5));
+      }, 300);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isCardVideoPlaying]);
+
+  const handlePlayVideo = (url: string | null) => {
+    if (!url) return;
+    setPlayingVideoTitle('Inspection Video');
+    setIsCardVideoPlaying(true);
+    setCardVideoProgress(5);
+  };
+
+
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -153,7 +186,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
         }
       }
       const raw = res?.data || res;
-    if (raw && (raw.inspectionId || raw.vehicleDetails || raw.status)) {
+      if (raw && (raw.inspectionId || raw.vehicleDetails || raw.status)) {
         const raw = res.data;
         setRawDetails(raw);
         const v = raw.vehicleDetails || {};
@@ -209,12 +242,31 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
         const finalImages = validPhotos.length > 0 ? validPhotos : [{ url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80', name: 'Front View' }];
         const primaryImage = (imageOnlyPhotos.length > 0 ? imageOnlyPhotos[0] : finalImages[0]).url;
 
-        const videoList = (raw.inspectionVideos || []).filter((vid: any) => vid.videoUrl && vid.captured !== false);
+        const photoVideos = imageList
+          .filter((p: any) => p.captured !== false && p.imageUrl && isActualVideoUrl(p.imageUrl))
+          .map((p: any) => ({
+            displayName: p.displayName || p.imageCategory || 'Inspection Video',
+            videoUrl: p.imageUrl,
+            condition: p.condition || 'NORMAL',
+          }));
+        const rawVideos = (raw.inspectionVideos || []).filter((vid: any) => (vid.videoUrl || vid.imageUrl) && vid.captured !== false);
+        const videoList = [...photoVideos, ...rawVideos];
 
         let auction = 'scheduled' as string;
         if (v.vehicleStatus === 'LIVE') auction = 'live';
         else if (v.vehicleStatus === 'SOLD OUT' || v.vehicleStatus === 'SOLD_OUT' || v.vehicleStatus === 'SOLD') auction = 'sold out';
         else if (v.vehicleStatus === 'ENDED' || v.vehicleStatus === 'AUCTION ENDED' || v.vehicleStatus === 'AUCTION_ENDED') auction = 'ended';
+
+        const rawRegYear = v.registrationYear || v.regYear || v.registrationDate || null;
+        let regYearStr = 'N/A';
+        if (rawRegYear && String(rawRegYear).trim() !== '' && String(rawRegYear) !== 'null' && String(rawRegYear) !== 'undefined') {
+          regYearStr = String(rawRegYear).slice(0, 4);
+        }
+
+        const rawOwner = v.ownership || v.owner || v.ownerType || v.numberOfOwners || 1;
+        const ownerFormatted = typeof rawOwner === 'number'
+          ? `${rawOwner}${rawOwner === 1 ? 'st' : rawOwner === 2 ? 'nd' : rawOwner === 3 ? 'rd' : 'th'} Owner`
+          : String(rawOwner || '1st Owner');
 
         const mapped = {
           id: String(inspectionId),
@@ -222,10 +274,21 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
           model: v.model || 'Details',
           variant: v.variant || '',
           year: v.manufacturingYear || 2020,
+          regYear: regYearStr,
+          ownership: ownerFormatted,
           fuel: fuelType,
           transmission: transmissionType,
           odometer: v.odometerReading || 45000,
           insuranceStatus: v.insuranceStatus || 'Expired / N/A',
+          location: v.location || 'N/A',
+          rtoInformation: v.rtoInformation || v.rto || 'N/A',
+          rsAvailability: v.rsAvailability || v.roadsideAssistance || 'N/A',
+          duplicateKey: v.duplicateKey || 'N/A',
+          rtoNocIssued: v.rtoNocIssued || v.rtoNoc || 'N/A',
+          underHypothecation: v.underHypothecation || v.hypothecation || 'N/A',
+          mismatchInRc: v.mismatchInRc || v.rcMismatch || 'N/A',
+          roadTaxPaid: v.roadTaxPaid || v.roadTax || 'N/A',
+          fitnessUpto: v.fitnessUpto || v.fitnessDate || 'N/A',
           score: calculatedScore,
           basePrice,
           highestBid,
@@ -236,7 +299,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
           images: finalImages,
           videos: videoList,
           endsAt: endsAtTime,
-          inspector: raw.inspectorName || 'Certified Inspector',
+
           vehicleStatus: v.vehicleStatus,
           sellerAgreed: v.sellerAgreed,
           sellerCounterPrice: v.sellerCounterPrice,
@@ -329,11 +392,11 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
           setVehicle((prev: any) =>
             prev
               ? {
-                  ...prev,
-                  sellerAgreed: data.sellerAgreed,
-                  sellerCounterPrice: data.sellerCounterPrice,
-                  sellerMessage: data.sellerMessage,
-                }
+                ...prev,
+                sellerAgreed: data.sellerAgreed,
+                sellerCounterPrice: data.sellerCounterPrice,
+                sellerMessage: data.sellerMessage,
+              }
               : prev,
           );
         } else if (data.type === 'ADMIN_DEALER_MESSAGE' && Number(data.inspectionId) === Number(vehicleId)) {
@@ -363,7 +426,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
         socket.onerror = () => {
           try {
             if (socket) socket.close();
-          } catch (e) {}
+          } catch (e) { }
         };
         socket.onclose = () => {
           if (wsRef.current === socket) wsRef.current = null;
@@ -409,6 +472,19 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
     checkWishlist();
   }, [vehicle?.id]);
 
+  const handleDownloadPdf = async () => {
+    if (!vehicle?.id) return;
+    setDownloadingPdf(true);
+    try {
+      await dealerService.downloadDealerPdf(Number(vehicle.id));
+      Alert.alert('Success', 'Inspection PDF report downloaded successfully.');
+    } catch (err: any) {
+      Alert.alert('Download Error', err?.message || 'Failed to download PDF report.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const handleToggleFavourite = async () => {
     if (!vehicle || favouriteLoading) return;
     setFavouriteLoading(true);
@@ -439,6 +515,10 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
 
   const handlePlaceBid = async () => {
     if (!vehicle || submittingBid) return;
+    if (isWinner) {
+      showToast({ message: 'You already hold the highest bid on this vehicle.', type: 'info' });
+      return;
+    }
     const currentHighest = vehicle.highestBid || 0;
     const minBidRequired = currentHighest > 0 ? currentHighest + 1000 : vehicle.basePrice || 10000;
     if (amount < minBidRequired) {
@@ -560,14 +640,30 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   const specs = useMemo(() => {
     if (!vehicle) return [];
     return [
+      { label: 'Registration Year', value: vehicle.regYear && vehicle.regYear !== 'null' && vehicle.regYear !== 'undefined' ? vehicle.regYear : 'N/A', icon: CalendarDays },
+      { label: 'Ownership', value: String(vehicle.ownership || '1st Owner'), icon: User },
       { label: 'Manufacturing Year', value: String(vehicle.year), icon: CalendarDays },
       { label: 'Variant & Trim', value: vehicle.variant || 'Standard', icon: Cog },
       { label: 'Fuel Type', value: vehicle.fuel, icon: Fuel },
       { label: 'Transmission', value: vehicle.transmission, icon: Cog },
-      { label: 'Odometer Reading', value: `${vehicle.odometer}`, icon: Gauge },
+      { label: 'Odometer Reading', value: `${vehicle.odometer} km`, icon: Gauge },
       { label: 'Insurance Status', value: vehicle.insuranceStatus || 'Expired / N/A', icon: ShieldCheck },
-      { label: 'Certified Inspector', value: vehicle.inspector, icon: User },
+      { label: 'Location', value: vehicle.location || 'N/A', icon: ShieldCheck },
       { label: 'Base Price', value: inr(vehicle.basePrice), icon: TrendingUp },
+    ];
+  }, [vehicle]);
+
+  const documentSpecs = useMemo(() => {
+    if (!vehicle) return [];
+    return [
+      { label: 'RTO Information', value: vehicle.rtoInformation || 'N/A', icon: ShieldCheck },
+      { label: 'RS Availability', value: vehicle.rsAvailability || 'N/A', icon: ShieldCheck },
+      { label: 'Duplicate Key Availability', value: vehicle.duplicateKey || 'N/A', icon: Cog },
+      { label: 'RTO NOC Issued', value: vehicle.rtoNocIssued || 'N/A', icon: ShieldCheck },
+      { label: 'Under Hypothecation', value: vehicle.underHypothecation || 'N/A', icon: ShieldCheck },
+      { label: 'Mismatch in RC', value: vehicle.mismatchInRc || 'N/A', icon: ShieldCheck },
+      { label: 'Road Tax Paid Status', value: vehicle.roadTaxPaid || 'N/A', icon: TrendingUp },
+      { label: 'Fitness Valid Upto Date', value: vehicle.fitnessUpto || 'N/A', icon: CalendarDays },
     ];
   }, [vehicle]);
 
@@ -645,18 +741,45 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
     );
   };
 
+  const videoList = useMemo(() => {
+    const photosList = rawDetails?.inspectionPhotos || [];
+    const videosFromPhotos = photosList
+      .filter((p: any) => p && p.captured !== false && p.imageUrl && isActualVideoUrl(p.imageUrl))
+      .map((p: any) => ({
+        id: p.id,
+        displayName: p.displayName || p.imageCategory || 'Engine / Motor Noise',
+        videoUrl: p.imageUrl,
+        imageUrl: p.imageUrl,
+        condition: p.condition || 'NORMAL',
+      }));
+
+    const rawVidList = (rawDetails?.inspectionVideos || [])
+      .filter((vid: any) => vid && vid.captured !== false && (vid.videoUrl || vid.imageUrl))
+      .map((v: any) => ({
+        id: v.id,
+        displayName: v.displayName || v.videoType || 'Inspection Video',
+        videoUrl: v.videoUrl || v.imageUrl,
+        imageUrl: v.videoUrl || v.imageUrl,
+        condition: v.condition || 'NORMAL',
+      }));
+
+    const combined = [...videosFromPhotos, ...rawVidList];
+    return combined.slice(0, 1);
+  }, [rawDetails]);
+
   const detailSteps = [
-    { id: 'overview', title: 'Step 1: Vehicle Specs', subtitle: 'Specs, insurance & primary photos' },
-    { id: 'exterior', title: `Step 2: Exterior Body (${exteriorPanels.length})`, subtitle: 'Panel conditions & body photos' },
-    { id: 'mechanical', title: 'Step 3: Mechanical', subtitle: 'Engine, oil, transmission & brakes' },
-    { id: 'tyres', title: 'Step 4: Tyres & Toolkit', subtitle: 'Tread depth % & emergency tools' },
-    { id: 'interior', title: 'Step 5: Interior & Electrical', subtitle: 'Cabin, electricals & remarks' },
+    { id: 'car_documents', title: 'Car Documents & Legal', subtitle: 'RTO, NOC, Fitness, RC & Tax status' },
+    { id: 'exterior', title: `Exterior Body (${exteriorPanels.length})`, subtitle: '32-Point panel condition report' },
+    { id: 'mechanical', title: 'Mechanical Health', subtitle: 'Engine, transmission & fluids' },
+    { id: 'tyres', title: 'Tyres & Toolkit', subtitle: 'Tread depth % & emergency tools' },
+    { id: 'interior', title: 'Interior Cabin', subtitle: 'Electricals, trim & remarks' },
+    { id: 'videos', title: `Videos & Sound (${videoList.length})`, subtitle: 'Engine noise & video clips' },
   ];
 
   const renderPhotoSlot = (
     label: string,
     url: string | null,
-    height: number = 92,
+    height: number = 170,
     showView: boolean = true,
   ) => (
     <View style={[styles.photoSlotCell, { borderColor: colors.border }]}>
@@ -666,9 +789,9 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
       <View style={[styles.photoSlotMedia, { height }]}>
         {url ? (
           isActualVideoUrl(url) ? (
-            <TouchableOpacity style={styles.videoBox} onPress={() => setActiveVideoModalUrl(url)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.videoBox} onPress={() => handlePlayVideo(url)} activeOpacity={0.85}>
               <Play size={22} color="#FFC700" fill="#FFC700" />
-              <Text style={styles.videoBoxText}>View Video</Text>
+              <Text style={styles.videoBoxText}>▶ Auto Play Video</Text>
             </TouchableOpacity>
           ) : (
             <>
@@ -701,9 +824,9 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
       </View>
       {photoUrl ? (
         isActualVideoUrl(photoUrl) ? (
-          <TouchableOpacity style={styles.condCardVideo} onPress={() => setActiveVideoModalUrl(photoUrl)} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.condCardVideo} onPress={() => handlePlayVideo(photoUrl)} activeOpacity={0.85}>
             <Play size={18} color="#FFC700" fill="#FFC700" />
-            <Text style={styles.condCardVideoText}>View Video</Text>
+            <Text style={styles.condCardVideoText}>▶ Auto Play Video</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.condCardPhotoWrap} onPress={() => openImageLightbox(photoUrl)} activeOpacity={0.9}>
@@ -721,6 +844,69 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
       )}
     </View>
   );
+
+  const renderWebVideoCard = (
+    title: string,
+    condition: string = 'NORMAL',
+    videoUrl: string | null = null,
+    thumbnailUrl: string | null = null,
+  ) => {
+    const formattedUrl = videoUrl ? formatMediaUrl(videoUrl) : null;
+    const defaultImg = vehicle?.images && vehicle.images.length > 0
+      ? vehicle.images[0].url
+      : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80';
+    const bgImage = thumbnailUrl || defaultImg;
+    const isThisCardPlaying = playingVideoTitle === title && isCardVideoPlaying;
+
+    return (
+      <View key={title} style={[styles.panel, { backgroundColor: cardBg, borderWidth: 0, padding: 14, marginTop: 10, borderRadius: 20 }]}>
+        {/* Header Row: Title & Status Badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: '900', color: colors.foreground }}>
+            {title}
+          </Text>
+          <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#EAECEF', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: isDark ? '#94A3B8' : '#4B5563', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {condition}
+            </Text>
+          </View>
+        </View>
+
+        {/* Video Player Box using react-native-video */}
+        <View
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: 180,
+            borderRadius: 16,
+            overflow: 'hidden',
+            backgroundColor: '#000000',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          {formattedUrl ? (
+            <Video
+              source={{ uri: formattedUrl }}
+              style={{ width: '100%', height: '100%' }}
+              controls={true}
+              resizeMode="contain"
+              paused={false}
+              muted={true}
+            />
+          ) : (
+            <>
+              <Image source={{ uri: bgImage }} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, opacity: 0.45 }} resizeMode="cover" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFC700', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 10 }}>
+                <VideoIcon size={18} color="#0D0E12" />
+                <Text style={{ fontSize: 13, fontWeight: '900', color: '#0D0E12' }}>No Video File Attached</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   const mechanicalItems = [
     { key: 'Engine / Motor Status', val: mechanical.engineStatus, photos: ['ENGINE / MOTOR STATUS', 'ENGINE_IMAGE', 'ENGINE'] },
@@ -868,11 +1054,25 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
             </Text>
             {statusChip(vehicle.auction)}
           </View>
-          <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {vehicle.variant} • {vehicle.year} Model • Inspected by {vehicle.inspector}
-          </Text>
+          {vehicle.variant ? (
+            <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {vehicle.variant}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={handleDownloadPdf}
+            style={[styles.headerFavBtn, { backgroundColor: '#FFC700', borderColor: '#FFC700' }]}
+            disabled={downloadingPdf}
+            activeOpacity={0.8}
+          >
+            {downloadingPdf ? (
+              <ActivityIndicator size="small" color="#0D0E12" />
+            ) : (
+              <Download size={16} color="#0D0E12" />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={handleToggleFavourite}
             style={[
@@ -905,118 +1105,43 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
           />
         }
       >
-        {/* Quick Specs Pill Row */}
-        <View style={styles.quickSpecsRow}>
-          <View style={[styles.quickSpecCell, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={[styles.quickSpecIcon, { backgroundColor: 'rgba(255,199,0,0.15)' }]}>
-              <Car size={18} color="#FFC700" />
-            </View>
-            <View>
-              <Text style={[styles.quickSpecLabel, { color: colors.mutedForeground }]}>Manufacturing</Text>
-              <Text style={[styles.quickSpecValue, { color: colors.foreground }]}>{vehicle.year}</Text>
-            </View>
-          </View>
-          <View style={[styles.quickSpecCell, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={[styles.quickSpecIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-              <Gauge size={18} color="#3B82F6" />
-            </View>
-            <View>
-              <Text style={[styles.quickSpecLabel, { color: colors.mutedForeground }]}>Odometer</Text>
-              <Text style={[styles.quickSpecValue, { color: colors.foreground }]} numberOfLines={1}>{vehicle.odometer}</Text>
-            </View>
-          </View>
-          <View style={[styles.quickSpecCell, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={[styles.quickSpecIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-              <Fuel size={18} color="#10B981" />
-            </View>
-            <View>
-              <Text style={[styles.quickSpecLabel, { color: colors.mutedForeground }]}>Fuel Type</Text>
-              <Text style={[styles.quickSpecValue, { color: colors.foreground }]}>{vehicle.fuel}</Text>
-            </View>
-          </View>
-          <View style={[styles.quickSpecCell, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={[styles.quickSpecIcon, { backgroundColor: 'rgba(139,92,246,0.15)' }]}>
-              <Settings2 size={18} color="#8B5CF6" />
-            </View>
-            <View>
-              <Text style={[styles.quickSpecLabel, { color: colors.mutedForeground }]}>Transmission</Text>
-              <Text style={[styles.quickSpecValue, { color: colors.foreground }]}>{vehicle.transmission}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Gallery card */}
-        <View style={[styles.galleryCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-          <TouchableOpacity onPress={() => setPreviewIndex(0)} activeOpacity={0.95} style={styles.galleryHeroWrap}>
-            <Image source={{ uri: vehicle.image }} style={styles.heroImage} resizeMode="cover" />
-            <View style={styles.heroOverlay} />
-            <View style={styles.heroTopBadges}>
-              <View style={styles.yearBadge}>
-                <Text style={styles.yearBadgeText}>{vehicle.year} Model</Text>
-              </View>
-              <View style={styles.scoreBadge}>
-                <Text style={styles.scoreBadgeText}>Score {vehicle.score}/100</Text>
-              </View>
-            </View>
-            <View style={styles.heroTopRight}>
-              <View style={styles.lightboxHintBadge}>
-                <Eye size={12} color="#FFC700" />
-                <Text style={styles.lightboxHintText}>Click photo for Lightbox</Text>
-              </View>
-            </View>
-            <View style={styles.heroBottom}>
+        <View style={styles.contentBody}>
+          {/* SECTION 1: TOP SIDE - Basic Information Overview & Specifications */}
+          <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <View style={styles.panelHeaderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>
-                  {vehicle.brand} {vehicle.model} {vehicle.variant}
+                <Text style={[styles.panelTitle, { color: colors.foreground }]}>Vehicle Overview & Basic Information</Text>
+                <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
+                  {vehicle.brand} {vehicle.model} {vehicle.variant} • Certified 200-Point Inspection
                 </Text>
-                <Text style={styles.heroSub}>Inspected 200-Point Quality Verified</Text>
               </View>
-              <View style={styles.heroPhotoCountBadge}>
-                <Text style={styles.heroPhotoCount}>📷 {vehicle.images?.length || 1} Inspection Photos</Text>
-              </View>
+              {renderScoreBadge(vehicle.score || 88)}
             </View>
-          </TouchableOpacity>
-
-          {/* Gallery Thumbnails Grid (4-col) */}
-          {vehicle.images && vehicle.images.length > 0 && (
-            <View style={[styles.thumbsGrid, { borderTopColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F6F7FA' }]}>
-              {vehicle.images.slice(0, 4).map((imgObj: any, idx: number) => {
-                const isLast = idx === 3 && vehicle.images.length > 4;
+            <View style={styles.specsGrid}>
+              {specs.map((s, idx) => {
+                const IconComp = s.icon;
                 return (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.thumb, { borderColor: colors.border }]}
-                    onPress={() => setPreviewIndex(idx)}
-                    activeOpacity={0.9}
-                  >
-                    <Image source={{ uri: imgObj.url }} style={styles.thumbImage} resizeMode="cover" />
-                    <View style={styles.thumbDim} />
-                    <Text style={styles.thumbLabel} numberOfLines={1}>
-                      {imgObj.name}
+                  <View key={idx} style={[styles.specCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
+                    <IconComp size={14} color="#FFC700" />
+                    <Text style={[styles.specLabelText, { color: colors.mutedForeground }]}>{s.label}</Text>
+                    <Text style={[styles.specValueText, { color: colors.foreground }]} numberOfLines={1}>
+                      {s.value}
                     </Text>
-                    {isLast && (
-                      <View style={styles.thumbMoreOverlay}>
-                        <Text style={styles.thumbMoreCount}>+{vehicle.images.length - 4}</Text>
-                        <Text style={styles.thumbMoreText}>More Photos</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
-          )}
-        </View>
+          </View>
 
-        <View style={styles.contentBody}>
-          {/* Live bidding box */}
+          {/* SECTION 2: Live Bidding Box */}
           <View
             style={[
               styles.bidBox,
               isWinner
                 ? { backgroundColor: '#062419', borderColor: 'rgba(16,185,129,0.6)' }
                 : participated
-                ? { backgroundColor: '#230d12', borderColor: 'rgba(244,63,94,0.5)' }
-                : { backgroundColor: '#0D0E12', borderColor: 'rgba(255,199,0,0.4)' },
+                  ? { backgroundColor: '#230d12', borderColor: 'rgba(244,63,94,0.5)' }
+                  : { backgroundColor: '#0D0E12', borderColor: 'rgba(255,199,0,0.4)' },
             ]}
           >
             <View style={[styles.bidBoxHeader, { borderBottomColor: 'rgba(255,255,255,0.1)' }]}>
@@ -1144,125 +1269,204 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
                 {isWinner ? (
                   <View style={styles.topPillGreen}>
                     <Sparkles size={20} color="#34D399" />
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.topPillTitle}>You are on Top!</Text>
-                      <Text style={styles.topPillDesc}>You currently hold the highest bid on this vehicle.</Text>
+                      <Text style={styles.topPillDesc}>
+                        You currently hold the highest bid of {inr(vehicle.highestBid)} on this vehicle. You cannot place another bid while you are on top.
+                      </Text>
                     </View>
                   </View>
-                ) : participated ? (
-                  <View style={styles.topPillRed}>
-                    <TriangleAlert size={20} color="#FB7185" />
-                    <View>
-                      <Text style={styles.topPillTitleRed}>You are Outbid!</Text>
-                      <Text style={styles.topPillDescRed}>Another dealer placed a higher bid. Place a bid to take back top position.</Text>
+                ) : (
+                  <>
+                    {participated ? (
+                      <View style={styles.topPillRed}>
+                        <TriangleAlert size={20} color="#FB7185" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.topPillTitleRed}>You are Outbid!</Text>
+                          <Text style={styles.topPillDescRed}>Another dealer placed a higher bid. Place a bid to take back top position.</Text>
+                        </View>
+                      </View>
+                    ) : null}
+
+                    <Text style={styles.quickLabel}>Quick Bid Increment</Text>
+                    <View style={styles.quickRow}>
+                      <TouchableOpacity
+                        style={styles.quickBtn}
+                        onPress={() => addQuickIncrement(2000)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.quickBtnText}>+2k</Text>
+                      </TouchableOpacity>
                     </View>
-                  </View>
-                ) : null}
 
-                <Text style={styles.quickLabel}>Quick Bid Increment</Text>
-                <View style={styles.quickRow}>
-                  <TouchableOpacity
-                    style={styles.quickBtn}
-                    onPress={() => addQuickIncrement(2000)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.quickBtnText}>+2k</Text>
-                  </TouchableOpacity>
-                </View>
+                    <Text style={styles.amountLabel}>Enter Bid Amount (₹)</Text>
+                    <View style={styles.amountInputWrap}>
+                      <Text style={styles.amountSymbol}>₹</Text>
+                      <TextInput
+                        style={styles.amountInput}
+                        keyboardType="number-pad"
+                        value={String(amount)}
+                        onChangeText={(t) => setAmount(Number(t.replace(/[^0-9]/g, '')) || 0)}
+                      />
+                    </View>
 
-                <Text style={styles.amountLabel}>Enter Bid Amount (₹)</Text>
-                <View style={styles.amountInputWrap}>
-                  <Text style={styles.amountSymbol}>₹</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    keyboardType="number-pad"
-                    value={String(amount)}
-                    onChangeText={(t) => setAmount(Number(t.replace(/[^0-9]/g, '')) || 0)}
-                  />
-                </View>
-
+                    <TouchableOpacity
+                      style={[styles.submitBidBtn, submittingBid && { opacity: 0.6 }]}
+                      onPress={handlePlaceBid}
+                      disabled={submittingBid}
+                      activeOpacity={0.85}
+                    >
+                      {submittingBid ? (
+                        <ActivityIndicator size="small" color="#0D0E12" />
+                      ) : (
+                        <View style={styles.submitBidInner}>
+                          <Zap size={14} color="#0D0E12" fill="#0D0E12" />
+                          <Text style={styles.submitBidText}>Submit Live Bid</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
                 <TouchableOpacity
-                  style={[styles.submitBidBtn, submittingBid && { opacity: 0.6 }]}
-                  onPress={handlePlaceBid}
-                  disabled={submittingBid}
+                  onPress={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  style={{
+                    backgroundColor: 'rgba(255,199,0,0.15)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,199,0,0.4)',
+                    borderRadius: 14,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 8,
+                    marginTop: 10,
+                  }}
                   activeOpacity={0.85}
                 >
-                  {submittingBid ? (
-                    <ActivityIndicator size="small" color="#0D0E12" />
+                  {downloadingPdf ? (
+                    <ActivityIndicator size="small" color="#FFC700" />
                   ) : (
-                    <View style={styles.submitBidInner}>
-                      <Zap size={14} color="#0D0E12" fill="#0D0E12" />
-                      <Text style={styles.submitBidText}>Submit Live Bid</Text>
-                    </View>
+                    <>
+                      <Download size={16} color="#FFC700" />
+                      <Text style={{ fontSize: 12, fontWeight: '900', color: '#FFC700' }}>Download Inspection PDF Report</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
-          {/* 5-Step Stepper Tabs Bar */}
-          <View style={styles.stepsGrid}>
-            {detailSteps.map((s, idx) => {
-              const isActive = activeTab === s.id;
-              return (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[
-                    styles.stepTile,
-                    { borderColor: colors.border, backgroundColor: cardBg },
-                    isActive && styles.stepTileActive,
-                  ]}
-                  onPress={() => setActiveTab(s.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.stepTileHeader}>
-                    <View style={[styles.stepTileNum, isActive && styles.stepTileNumActive]}>
-                      <Text style={[styles.stepTileNumText, isActive && styles.stepTileNumTextActive]}>{idx + 1}</Text>
-                    </View>
-                    <Text style={[styles.stepTileTitle, { color: colors.foreground }]} numberOfLines={1}>
-                      {s.title.split(':')[1] || s.title}
-                    </Text>
-                  </View>
-                  <Text style={[styles.stepTileSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-                    {s.subtitle}
+          {/* SECTION 3: Vehicle Single Hero Image Display */}
+          <View style={[styles.galleryCard, { backgroundColor: cardBg, borderColor: colors.border, marginHorizontal: 0, marginTop: 14 }]}>
+            <TouchableOpacity onPress={() => setPreviewIndex(0)} activeOpacity={0.95} style={styles.galleryHeroWrap}>
+              <Image source={{ uri: vehicle.image }} style={styles.heroImage} resizeMode="cover" />
+              <View style={styles.heroOverlay} />
+              <View style={styles.heroTopBadges}>
+                <View style={styles.yearBadge}>
+                  <Text style={styles.yearBadgeText}>{vehicle.year} Model</Text>
+                </View>
+                <View style={styles.scoreBadge}>
+                  <Text style={styles.scoreBadgeText}>Score {vehicle.score}/100</Text>
+                </View>
+              </View>
+              <View style={styles.heroTopRight}>
+                <View style={styles.lightboxHintBadge}>
+                  <Eye size={12} color="#FFC700" />
+                  <Text style={styles.lightboxHintText}>Tap for Fullscreen Lightbox</Text>
+                </View>
+              </View>
+              <View style={styles.heroBottom}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroTitle}>
+                    {vehicle.brand} {vehicle.model} {vehicle.variant}
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
+                  <Text style={styles.heroSub}>Inspected 200-Point Quality Verified</Text>
+                </View>
+                <View style={styles.heroPhotoCountBadge}>
+                  <Text style={styles.heroPhotoCount}>📷 {vehicle.images?.length || 1} Photos</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
 
-          {/* STEP 1: Overview & Specs */}
-          {activeTab === 'overview' && (
+          {/* SECTION 4: 200-Point Detailed Inspection Report Tabs */}
+          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 10 }]}>Detailed 200-Point Inspection Report</Text>
+          <View style={{ marginBottom: 14 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {detailSteps.map((s, idx) => {
+                const isActive = activeTab === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: isActive ? '#FFC700' : colors.border,
+                      backgroundColor: isActive ? 'rgba(255,199,0,0.15)' : cardBg,
+                    }}
+                    onPress={() => setActiveTab(s.id)}
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: isActive ? '#FFC700' : isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 10.5, fontWeight: '900', color: isActive ? '#0D0E12' : colors.mutedForeground }}>
+                        {idx + 1}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: '900', color: isActive ? '#FFC700' : colors.foreground }}>
+                      {s.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* STEP 1: Car Documents & Legal Verification */}
+          {activeTab === 'car_documents' && (
             <View style={styles.stepContent}>
               <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
-                <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 1: Vehicle Specifications</Text>
+                <View style={styles.panelHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>📄 Car Documents & Legal Verification</Text>
+                    <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
+                      RTO registration, hypothecation, NOC, road tax & fitness certificates.
+                    </Text>
+                  </View>
+                  <View style={[styles.scoreChip, { backgroundColor: '#10B981' }]}>
+                    <Text style={[styles.scoreChipText, { color: '#FFFFFF' }]}>VERIFIED</Text>
+                  </View>
+                </View>
+
                 <View style={styles.specsGrid}>
-                  {specs.map((s, idx) => {
+                  {documentSpecs.map((s, idx) => {
                     const IconComp = s.icon;
                     return (
                       <View key={idx} style={[styles.specCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
-                        <IconComp size={13} color="#FFC700" />
+                        <IconComp size={14} color="#FFC700" />
                         <Text style={[styles.specLabelText, { color: colors.mutedForeground }]}>{s.label}</Text>
-                        <Text style={[styles.specValueText, { color: colors.foreground }]} numberOfLines={1}>{s.value}</Text>
+                        <Text style={[styles.specValueText, { color: colors.foreground }]} numberOfLines={1}>
+                          {s.value}
+                        </Text>
                       </View>
                     );
                   })}
                 </View>
               </View>
-
-              {rawDetails && (
-                <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
-                  <Text style={[styles.panelTitle, { color: colors.foreground }]}>Primary Inspection Photos</Text>
-                  <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
-                    High-resolution mandatory vehicle angle photos.
-                  </Text>
-                  <View style={styles.mediaGrid}>
-                    {primaryPhotoSlots.map((slot) =>
-                      renderPhotoSlot(slot.label, findMatchingPhoto(slot.keys)),
-                    )}
-                  </View>
-                </View>
-              )}
             </View>
           )}
 
@@ -1427,6 +1631,43 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
           )}
 
           {/* STEP 5: Interior & Electricals */}
+          {/* STEP 5: Video Recordings & Engine Sound */}
+          {activeTab === 'videos' && (
+            <View style={styles.stepContent}>
+              <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
+                <View style={styles.panelHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>🎥 Inspection Videos & Engine Sound</Text>
+                    <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
+                      200-point inspection sound recordings and video clips.
+                    </Text>
+                  </View>
+                </View>
+
+                {videoList.length > 0 ? (
+                  <View style={{ gap: 12, marginTop: 4 }}>
+                    {videoList.map((vid: any, idx: number) => {
+                      const vUrl = vid.videoUrl || vid.imageUrl || vid.url;
+                      return renderWebVideoCard(
+                        vid.displayName || vid.videoType || `Engine / Motor Noise Clip #${idx + 1}`,
+                        vid.condition || 'NORMAL',
+                        vUrl ? formatMediaUrl(vUrl) : null,
+                        vid.thumbnailUrl ? formatMediaUrl(vid.thumbnailUrl) : null,
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 14, marginTop: 10 }}>
+                    <VideoIcon size={24} color={colors.mutedForeground} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.mutedForeground, marginTop: 8 }}>
+                      No video recordings attached for this vehicle.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           {activeTab === 'interior' && (
             <View style={styles.stepContent}>
               <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
@@ -1434,7 +1675,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 5: Interior Cabin & Electrical Checklist</Text>
                     <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
-                      Cabin trim, battery condition, electrical buttons & inspector remarks.
+                      Cabin trim, battery condition, electrical buttons & evaluation remarks.
                     </Text>
                   </View>
                   {renderScoreBadge(ratings.interior ? Number(ratings.interior) * 20 : 92)}
@@ -1462,7 +1703,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
                 </View>
 
                 <View style={styles.remarksBlock}>
-                  <Text style={[styles.remarksLabel, { color: colors.foreground }]}>Inspector Remarks & Notes</Text>
+                  <Text style={[styles.remarksLabel, { color: colors.foreground }]}>Evaluation Remarks & Notes</Text>
                   <View style={[styles.remarksBox, { backgroundColor: cardBg, borderColor: colors.border }]}>
                     <Text style={[styles.remarksText, { color: colors.foreground }]}>
                       {interior.remarks || 'No remarks entered.'}
@@ -1473,65 +1714,199 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
             </View>
           )}
         </View>
-      </ScrollView>
 
-      {/* Lightbox Modal */}
+        {/* Lightbox Fullscreen Preview Modal with Pinch & Button Zooming */}
       <Modal
-        visible={previewIndex !== null && (vehicle.images?.length || 0) > 0}
+        visible={previewIndex !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setPreviewIndex(null)}
+        onRequestClose={() => {
+          setPreviewIndex(null);
+          setZoomScale(1.0);
+        }}
       >
         <View style={styles.lightboxRoot}>
           <View style={styles.lightboxTopBar}>
-            <View style={{ flex: 1, paddingRight: 10 }}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
               <Text style={styles.lightboxTitle} numberOfLines={1}>
-                {vehicle.brand} {vehicle.model} {vehicle.variant}
+                {vehicle?.brand} {vehicle?.model} {vehicle?.variant}
               </Text>
               <Text style={styles.lightboxSub} numberOfLines={1}>
-                {vehicle.images && vehicle.images[previewIndex ?? 0]?.name || 'Inspection Photo'}
+                {vehicle?.images && vehicle.images[previewIndex ?? 0]?.name || 'Inspection Photo'}
               </Text>
             </View>
-            <TouchableOpacity style={styles.lightboxClose} onPress={() => setPreviewIndex(null)}>
+
+            {/* Zoom Controls Toolbar */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 8 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: 'rgba(255,199,0,0.2)', borderWidth: 1, borderColor: '#FFC700', borderRadius: 10, padding: 7 }}
+                onPress={() => setZoomScale((prev) => Math.min(3.5, prev + 0.4))}
+                activeOpacity={0.8}
+              >
+                <ZoomIn size={16} color="#FFC700" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: 7 }}
+                onPress={() => setZoomScale((prev) => Math.max(1.0, prev - 0.4))}
+                activeOpacity={0.8}
+              >
+                <ZoomOut size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {zoomScale > 1.05 && (
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFC700', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 }}
+                  onPress={() => setZoomScale(1.0)}
+                  activeOpacity={0.8}
+                >
+                  <RotateCcw size={12} color="#0D0E12" />
+                  <Text style={{ fontSize: 9.5, fontWeight: '900', color: '#0D0E12' }}>{Math.round(zoomScale * 100)}%</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.lightboxClose}
+              onPress={() => {
+                setPreviewIndex(null);
+                setZoomScale(1.0);
+              }}
+            >
               <X size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.lightboxCenter}>
-            {previewIndex !== null && (
+            {previewIndex !== null && vehicle?.images && (
               <>
                 <TouchableOpacity
                   style={styles.lightboxNav}
-                  onPress={() =>
+                  onPress={() => {
+                    setZoomScale(1.0);
                     setPreviewIndex((prev) =>
                       prev !== null ? (prev - 1 + vehicle.images.length) % vehicle.images.length : null,
-                    )
-                  }
+                    );
+                  }}
                 >
                   <ChevronLeft size={26} color="#FFFFFF" />
                 </TouchableOpacity>
-                <View style={styles.lightboxStage}>
+
+                <View style={[styles.lightboxStage, { position: 'relative' }]}>
                   {isActualVideoUrl(vehicle.images[previewIndex]?.url) ? (
-                    <TouchableOpacity
-                      style={styles.lightboxVideoPlaceholder}
-                      onPress={() => Linking.openURL(vehicle.images[previewIndex]?.url)}
-                    >
-                      <Play size={42} color="#FFC700" fill="#FFC700" />
-                      <Text style={styles.lightboxVideoText}>Tap to play video</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Image
-                      source={{ uri: vehicle.images[previewIndex]?.url }}
-                      style={styles.lightboxImage}
+                    <Video
+                      source={{ uri: formatMediaUrl(vehicle.images[previewIndex]?.url) }}
+                      style={{ width: '100%', height: '100%' }}
+                      controls={true}
                       resizeMode="contain"
+                      paused={false}
+                      muted={true}
                     />
+                  ) : (
+                    <>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+                        style={{ width: '100%', height: '100%' }}
+                      >
+                        <ScrollView
+                          showsHorizontalScrollIndicator={false}
+                          showsVerticalScrollIndicator={false}
+                          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+                          style={{ width: '100%', height: '100%' }}
+                        >
+                          <TouchableOpacity
+                            activeOpacity={0.95}
+                            onPress={() => setZoomScale((prev) => (prev >= 2.5 ? 1.0 : prev + 0.75))}
+                            style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+                          >
+                            <View
+                              style={{
+                                width: `${Math.round(100 * zoomScale)}%`,
+                                height: `${Math.round(100 * zoomScale)}%`,
+                                minWidth: 300 * zoomScale,
+                                minHeight: 300 * zoomScale,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Image
+                                source={{ uri: formatMediaUrl(vehicle.images[previewIndex]?.url) }}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                }}
+                                resizeMode="contain"
+                              />
+                            </View>
+                          </TouchableOpacity>
+                        </ScrollView>
+                      </ScrollView>
+
+                      {/* Floating Interactive Zoom Bar */}
+                      <View
+                        style={{
+                          position: 'absolute',
+                          bottom: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 12,
+                          backgroundColor: 'rgba(13,14,18,0.92)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.25)',
+                          borderRadius: 24,
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          zIndex: 999,
+                          elevation: 10,
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.4,
+                          shadowRadius: 6,
+                        }}
+                      >
+                        <TouchableOpacity
+                          onPress={() => setZoomScale((prev) => Math.max(1.0, parseFloat((prev - 0.5).toFixed(1))))}
+                          style={{ padding: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <ZoomOut size={20} color={zoomScale <= 1.0 ? 'rgba(255,255,255,0.3)' : '#FFFFFF'} />
+                        </TouchableOpacity>
+
+                        <Text style={{ color: '#FFC700', fontSize: 13, fontWeight: '900', minWidth: 46, textAlign: 'center' }}>
+                          {Math.round(zoomScale * 100)}%
+                        </Text>
+
+                        <TouchableOpacity
+                          onPress={() => setZoomScale((prev) => Math.min(3.5, parseFloat((prev + 0.5).toFixed(1))))}
+                          style={{ padding: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <ZoomIn size={20} color={zoomScale >= 3.5 ? 'rgba(255,255,255,0.3)' : '#FFC700'} />
+                        </TouchableOpacity>
+
+                        {zoomScale > 1.0 && (
+                          <TouchableOpacity
+                            onPress={() => setZoomScale(1.0)}
+                            style={{ backgroundColor: '#FFC700', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 2 }}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={{ color: '#0D0E12', fontSize: 9.5, fontWeight: '900' }}>RESET</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </>
                   )}
                 </View>
+
                 <TouchableOpacity
                   style={styles.lightboxNav}
-                  onPress={() =>
-                    setPreviewIndex((prev) => (prev !== null ? (prev + 1) % vehicle.images.length : null))
-                  }
+                  onPress={() => {
+                    setZoomScale(1.0);
+                    setPreviewIndex((prev) => (prev !== null ? (prev + 1) % vehicle.images.length : null));
+                  }}
                 >
                   <ChevronRight size={26} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -1541,10 +1916,17 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
 
           <View style={styles.lightboxBottom}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lightboxThumbs}>
-              {vehicle.images.map((imgObj: any, idx: number) => {
+              {vehicle?.images && vehicle.images.map((imgObj: any, idx: number) => {
                 const isActive = idx === previewIndex;
                 return (
-                  <TouchableOpacity key={idx} onPress={() => setPreviewIndex(idx)} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => {
+                      setZoomScale(1.0);
+                      setPreviewIndex(idx);
+                    }}
+                    activeOpacity={0.85}
+                  >
                     {isActualVideoUrl(imgObj.url) ? (
                       <View style={[styles.lightboxThumb, styles.lightboxThumbVideo, isActive && styles.lightboxThumbActive]}>
                         <Play size={14} color="#FFC700" fill="#FFC700" />
@@ -1562,61 +1944,14 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
             </ScrollView>
             <View style={styles.lightboxCounter}>
               <Text style={styles.lightboxCounterText}>
-                Photo {previewIndex !== null ? previewIndex + 1 : 1} of {vehicle.images.length}
+                Photo {previewIndex !== null ? previewIndex + 1 : 1} of {vehicle?.images?.length || 1}
               </Text>
             </View>
           </View>
         </View>
       </Modal>
-
-      {/* Dedicated Video Modal */}
-      <Modal
-        visible={activeVideoModalUrl !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveVideoModalUrl(null)}
-      >
-        <View style={styles.videoModalRoot}>
-          <View style={[styles.videoModalCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={styles.videoModalHeader}>
-              <View style={styles.videoModalHeaderLeft}>
-                <View style={styles.videoModalIconWrap}>
-                  <Video size={18} color="#0D0E12" />
-                </View>
-                <View>
-                  <Text style={[styles.videoModalTitle, { color: colors.foreground }]}>Engine / Motor Noise Recording</Text>
-                  <Text style={[styles.videoModalSub, { color: colors.mutedForeground }]}>
-                    {vehicle?.brand} {vehicle?.model} {vehicle?.variant}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.videoModalClose} onPress={() => setActiveVideoModalUrl(null)}>
-                <X size={18} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.videoModalStage}
-              onPress={() => Linking.openURL(activeVideoModalUrl || '')}
-              activeOpacity={0.9}
-            >
-              <Play size={44} color="#FFC700" fill="#FFC700" />
-              <Text style={styles.videoModalStageText}>Tap to play / open video</Text>
-            </TouchableOpacity>
-
-            <View style={[styles.videoModalFooter, { borderTopColor: colors.border }]}>
-              <View style={styles.videoVerifiedRow}>
-                <CircleCheckBig size={15} color="#10B981" />
-                <Text style={styles.videoVerifiedText}>200-Point Inspection Sound Recording Verified</Text>
-              </View>
-              <TouchableOpacity onPress={() => Linking.openURL(activeVideoModalUrl || '')} activeOpacity={0.85}>
-                <Text style={styles.videoOpenLink}>Open Direct Link ↗</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+    </ScrollView>
+  </SafeAreaView>
   );
 };
 
@@ -1766,42 +2101,42 @@ const styles = StyleSheet.create({
   specLabelText: { fontSize: 9.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 3 },
   specValueText: { fontSize: 12.5, fontWeight: '900' },
 
-  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  photoSlotCell: { flexBasis: '45%', flexGrow: 1, borderWidth: 1, borderRadius: 14, padding: 9 },
-  photoSlotLabel: { fontSize: 10.5, fontWeight: '900', marginBottom: 7 },
+  mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  photoSlotCell: { flexBasis: '100%', width: '100%', borderWidth: 1, borderRadius: 14, padding: 11 },
+  photoSlotLabel: { fontSize: 11, fontWeight: '900', marginBottom: 8 },
   photoSlotMedia: { borderRadius: 11, overflow: 'hidden', position: 'relative' },
   photoSlotImage: { width: '100%', height: '100%' },
-  viewOverlay: { position: 'absolute', bottom: 6, right: 6, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,199,0,0.95)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  viewOverlayText: { fontSize: 9, fontWeight: '900', color: '#0D0E12' },
-  photoSlotEmpty: { flex: 1, backgroundColor: 'rgba(148,163,184,0.08)', justifyContent: 'center', alignItems: 'center', gap: 4 },
-  photoSlotEmptyText: { fontSize: 8.5, fontWeight: '700' },
+  viewOverlay: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,199,0,0.95)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  viewOverlayText: { fontSize: 9.5, fontWeight: '900', color: '#0D0E12' },
+  photoSlotEmpty: { flex: 1, height: 100, backgroundColor: 'rgba(148,163,184,0.08)', justifyContent: 'center', alignItems: 'center', gap: 4 },
+  photoSlotEmptyText: { fontSize: 9, fontWeight: '700' },
   videoBox: { flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center', gap: 6 },
-  videoBoxText: { fontSize: 10, fontWeight: '800', color: '#FFC700' },
+  videoBoxText: { fontSize: 10.5, fontWeight: '800', color: '#FFC700' },
 
-  condCardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  condCard: { flexBasis: '45%', flexGrow: 1, borderWidth: 1, borderRadius: 14, padding: 11, gap: 9 },
+  condCardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  condCard: { flexBasis: '100%', width: '100%', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
   condCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-  condCardLabel: { fontSize: 10.5, fontWeight: '900', flexShrink: 1, flex: 1 },
-  condChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, maxWidth: 130 },
-  condChipText: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
-  condCardPhotoWrap: { height: 88, borderRadius: 11, overflow: 'hidden', position: 'relative' },
+  condCardLabel: { fontSize: 11.5, fontWeight: '900', flexShrink: 1, flex: 1 },
+  condChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, maxWidth: 140 },
+  condChipText: { fontSize: 9.5, fontWeight: '900', textTransform: 'uppercase' },
+  condCardPhotoWrap: { height: 170, borderRadius: 11, overflow: 'hidden', position: 'relative' },
   condCardPhoto: { width: '100%', height: '100%' },
-  condCardPhotoOverlay: { position: 'absolute', bottom: 5, right: 5, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,199,0,0.95)', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  condCardPhotoOverlayText: { fontSize: 8.5, fontWeight: '900', color: '#0D0E12' },
-  condCardNoPhoto: { height: 52, borderRadius: 11, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(148,163,184,0.4)', justifyContent: 'center', alignItems: 'center' },
-  condCardNoPhotoText: { fontSize: 9, fontWeight: '700' },
-  condCardVideo: { height: 88, borderRadius: 11, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center', gap: 5 },
-  condCardVideoText: { fontSize: 9, fontWeight: '800', color: '#FFC700' },
+  condCardPhotoOverlay: { position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,199,0,0.95)', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  condCardPhotoOverlayText: { fontSize: 9, fontWeight: '900', color: '#0D0E12' },
+  condCardNoPhoto: { height: 56, borderRadius: 11, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(148,163,184,0.4)', justifyContent: 'center', alignItems: 'center' },
+  condCardNoPhotoText: { fontSize: 9.5, fontWeight: '700' },
+  condCardVideo: { height: 170, borderRadius: 11, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center', gap: 5 },
+  condCardVideoText: { fontSize: 10, fontWeight: '800', color: '#FFC700' },
 
-  sectionLabel: { fontSize: 10.5, fontWeight: '900', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 12, marginBottom: 8 },
-  tyreCardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
-  tyreCard: { flexBasis: '45%', flexGrow: 1, borderWidth: 1, borderRadius: 14, padding: 11, gap: 8 },
+  sectionLabel: { fontSize: 11, fontWeight: '900', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 14, marginBottom: 8 },
+  tyreCardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 4 },
+  tyreCard: { flexBasis: '100%', width: '100%', borderWidth: 1, borderRadius: 14, padding: 12, gap: 10 },
   tyreCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, paddingBottom: 8, gap: 6 },
-  tyreCardLabel: { fontSize: 10.5, fontWeight: '900', flexShrink: 1 },
-  treadChip: { backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 7, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', paddingHorizontal: 7, paddingVertical: 3 },
-  treadChipText: { fontSize: 8.5, fontWeight: '900', color: '#10B981' },
-  tyreCardBrand: { fontSize: 10, fontWeight: '700' },
-  tyreCardPhotoWrap: { height: 78, borderRadius: 11, overflow: 'hidden', position: 'relative' },
+  tyreCardLabel: { fontSize: 11.5, fontWeight: '900', flexShrink: 1 },
+  treadChip: { backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 7, borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', paddingHorizontal: 8, paddingVertical: 4 },
+  treadChipText: { fontSize: 9, fontWeight: '900', color: '#10B981' },
+  tyreCardBrand: { fontSize: 10.5, fontWeight: '700' },
+  tyreCardPhotoWrap: { height: 160, borderRadius: 11, overflow: 'hidden', position: 'relative' },
   tyreCardPhoto: { width: '100%', height: '100%' },
   toolkitList: { gap: 8 },
   toolkitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 11 },

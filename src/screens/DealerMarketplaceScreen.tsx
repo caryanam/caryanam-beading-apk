@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Menu, Search, RefreshCw, X, Clock, Heart, Gauge, Fuel, Cog, User, ChevronRight, Filter, ChevronDown, CheckCircle2 } from 'lucide-react-native';
+import { Menu, Search, RefreshCw, X, Clock, Heart, Gauge, Fuel, Cog, User, ChevronRight, Filter, ChevronDown, CheckCircle2, MapPin, Star } from 'lucide-react-native';
 import { dealerService } from '../services/dealerService';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -30,51 +30,71 @@ const timeLeft = (endsAt?: number): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 };
 
+const getTimerParts = (endsAt?: number) => {
+  if (!endsAt) return { hours: '00', minutes: '00', seconds: '00' };
+  const diff = endsAt - Date.now();
+  if (diff <= 0) return { hours: '00', minutes: '00', seconds: '00' };
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return {
+    hours: String(h).padStart(2, '0'),
+    minutes: String(m).padStart(2, '0'),
+    seconds: String(s).padStart(2, '0'),
+  };
+};
+
 const uniq = (list: string[]) => ['All', ...Array.from(new Set(list))];
 
 const mapVehicle = (v: any): any => {
-  const basePrice = v.suggestedPrice || 350000;
+  const basePrice = v.suggestedPrice || v.price || v.basePrice || 0;
   const highestBid = v.currentHighestBid && v.currentHighestBid > 0 ? v.currentHighestBid : 0;
 
-  let fuel = 'Petrol';
-  const f = (v.fuel || '').toLowerCase();
+  let fuel = v.fuelType || v.fuel || 'Petrol';
+  const f = fuel.toLowerCase();
   if (f.includes('diesel')) fuel = 'Diesel';
   else if (f.includes('cng')) fuel = 'CNG';
   else if (f.includes('lpg')) fuel = 'LPG';
   else if (f.includes('hybrid')) fuel = 'Hybrid';
   else if (f.includes('electric') || f.includes('ev')) fuel = 'Electric';
-  else if (v.fuel) fuel = v.fuel;
 
-  let transmission = 'Manual';
-  const t = (v.transmission || '').toLowerCase();
+  let transmission = v.transmission || 'Manual';
+  const t = transmission.toLowerCase();
   if (t.includes('auto')) transmission = 'Automatic';
 
-  const status = v.vehicleStatus || '';
+  const status = v.vehicleStatus || v.status || '';
   let auction = 'scheduled' as string;
   if (status === 'LIVE') auction = 'live';
   else if (status === 'SOLD OUT' || status === 'SOLD_OUT' || status === 'SOLD') auction = 'sold out';
   else if (status === 'ENDED' || status === 'AUCTION ENDED' || status === 'AUCTION_ENDED') auction = 'ended';
 
+  const location = v.location || v.city || v.place || '';
+  const rtoInfo = v.rtoInformation || v.rto || (v.vehicleNumber ? v.vehicleNumber.slice(0, 6) : '');
+  const engineRating = v.engineRating || v.overallRating || v.rating || (v.inspectionRating ? String(v.inspectionRating) : '');
+
   return {
-    id: String(v.inspectionId),
-    inspectionId: v.inspectionId,
-    regNo: v.vehicleNumber,
-    brand: v.brand,
-    model: v.model,
-    variant: v.variant,
-    year: v.year || 2020,
+    id: String(v.inspectionId || v.id),
+    inspectionId: v.inspectionId || v.id,
+    regNo: v.vehicleNumber || v.regNo || '',
+    brand: v.brand || '',
+    model: v.model || '',
+    variant: v.variant || '',
+    year: v.year || v.manufacturingYear || v.registrationYear || '',
     fuel,
     transmission,
-    odometer: v.odometer ?? 0,
-    owner: v.ownerName || '1st Owner',
-    score: 88 + (v.inspectionId % 10),
+    odometer: v.odometerReading ?? v.odometer ?? null,
+    owner: v.ownerName || v.owner || '',
+    location,
+    rtoInformation: rtoInfo,
+    engineRating,
+    score: v.inspectionScore || v.score || 0,
     basePrice,
     highestBid,
-    bids: v.totalBids || 0,
+    bids: v.totalBids || v.bids || 0,
     auction,
-    image: v.vehicleImage || 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80',
-    endsAt: v.auctionEndTime || undefined,
-    inspector: v.inspectorName || 'Certified Inspector',
+    image: v.vehicleImage || v.imageUrl || v.image || 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80',
+    endsAt: v.auctionEndTime || v.endsAt || undefined,
+    inspector: v.inspectorName || v.evaluator || '',
   };
 };
 
@@ -323,17 +343,16 @@ interface MarketplaceVehicleCardProps {
   isFavourite: boolean;
   onToggleFavourite: (id: number) => void;
 }
-
 const MarketplaceVehicleCard: React.FC<MarketplaceVehicleCardProps> = ({ v, navigation, colors, isDark, cardBg, isFavourite, onToggleFavourite }) => {
   const isLive = v.auction === 'live';
   const isComingSoon = v.auction === 'scheduled';
   const isSoldOut = v.auction === 'sold out';
   const isEnded = v.auction === 'ended';
-  const [timeRemaining, setTimeRemaining] = useState(timeLeft(v.endsAt));
+  const [timerParts, setTimerParts] = useState(getTimerParts(v.endsAt));
 
   useEffect(() => {
-    setTimeRemaining(timeLeft(v.endsAt));
-    const id = setInterval(() => setTimeRemaining(timeLeft(v.endsAt)), 1000);
+    setTimerParts(getTimerParts(v.endsAt));
+    const id = setInterval(() => setTimerParts(getTimerParts(v.endsAt)), 1000);
     return () => clearInterval(id);
   }, [v.endsAt]);
 
@@ -341,24 +360,23 @@ const MarketplaceVehicleCard: React.FC<MarketplaceVehicleCardProps> = ({ v, navi
     <View
       style={[
         styles.card,
-        {
-          backgroundColor: cardBg,
-          borderColor: isLive ? 'rgba(16,185,129,0.5)' : (isComingSoon ? 'rgba(99,102,241,0.4)' : colors.border),
-        },
+        { backgroundColor: cardBg, borderColor: colors.border },
       ]}
     >
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => navigation.navigate('DealerVehicleDetail', { vehicleId: v.inspectionId })}
       >
-        {/* Image */}
+        {/* Top Image Section */}
         <View style={styles.imageWrap}>
           <Image source={{ uri: v.image }} style={styles.image} resizeMode="cover" />
           <View style={styles.imageOverlay} />
+
+          {/* Status Badges (Top-Left) */}
           {isLive ? (
             <View style={styles.liveBadge}>
               <View style={styles.livePing} />
-              <Text style={styles.liveBadgeText}>LIVE AUCTION</Text>
+              <Text style={styles.liveBadgeText}>LIVE</Text>
             </View>
           ) : isComingSoon ? (
             <View style={styles.soonBadge}>
@@ -367,94 +385,129 @@ const MarketplaceVehicleCard: React.FC<MarketplaceVehicleCardProps> = ({ v, navi
             </View>
           ) : (
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>VERIFIED LISTING</Text>
+              <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
             </View>
           )}
-<TouchableOpacity
+
+          {/* Heart Wishlist Button (Top-Right) */}
+          <TouchableOpacity
             style={[styles.heartBtn, isFavourite && styles.heartBtnFav]}
             onPress={() => onToggleFavourite(v.inspectionId)}
             activeOpacity={0.8}
           >
             <Heart size={15} color="#FFFFFF" fill={isFavourite ? '#FFFFFF' : 'transparent'} />
           </TouchableOpacity>
+
+          {/* Location Badge Pill (Dynamic) */}
+          {(v.location || v.rtoInformation) ? (
+            <View style={styles.locationPill}>
+              <MapPin size={11} color="#FFFFFF" />
+              <Text style={styles.locationPillText} numberOfLines={1}>
+                {v.location && v.rtoInformation
+                  ? `${v.location} • ${v.rtoInformation}`
+                  : v.location || v.rtoInformation}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Carousel Indicators (Bottom-Right: • • •) */}
+          <View style={styles.dotsRow}>
+            <View style={[styles.dot, styles.dotActive]} />
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
         </View>
 
-        {/* Specs bar */}
-        <View style={[styles.specsBar, { backgroundColor: isDark ? '#171A24' : '#FFFFFF' }]}>
-          <View style={styles.specCell}>
-            <Gauge size={12} color="#FFC700" />
-            <View>
-              <Text style={[styles.specVal, { color: colors.foreground }]}>{v.odometer ? v.odometer : 'N/A'}</Text>
-              <Text style={[styles.specLabel, { color: colors.mutedForeground }]}>Mileage</Text>
-            </View>
-          </View>
-          <View style={styles.specCell}>
-            <Fuel size={12} color="#FFC700" />
-            <View>
-              <Text style={[styles.specVal, { color: colors.foreground }]}>{v.fuel}</Text>
-              <Text style={[styles.specLabel, { color: colors.mutedForeground }]}>Fuel Type</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Content */}
+        {/* Card Body */}
         <View style={styles.cardBody}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>{v.brand} {v.model}</Text>
-          <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>{v.year} Model • {v.variant || 'Standard'}</Text>
-
-          <View style={styles.specsGrid}>
-            <View style={[styles.specBox, { backgroundColor: isDark ? '#171A24' : '#F2F4FA' }]}>
-              <Cog size={11} color="#FFC700" />
-              <View>
-                <Text style={[styles.specBoxVal, { color: colors.foreground }]}>{v.transmission === 'Automatic' ? 'Auto' : 'Manual'}</Text>
-                <Text style={[styles.specBoxLabel, { color: colors.mutedForeground }]}>Transmission</Text>
+          {/* Header Row: Title & Engine Rating Pill */}
+          <View style={styles.titleRow}>
+            <Text style={[styles.yearBrandModel, { color: colors.mutedForeground }]}>
+              {[v.year, v.brand, v.model].filter(Boolean).join(' ')}
+            </Text>
+            {v.engineRating ? (
+              <View style={styles.engineRatingPill}>
+                <Text style={styles.engineRatingText}>ENGINE {v.engineRating}</Text>
+                <Star size={10} color="#10B981" fill="#10B981" />
               </View>
-            </View>
-            <View style={[styles.specBox, { backgroundColor: isDark ? '#171A24' : '#F2F4FA' }]}>
-              <User size={11} color="#FFC700" />
-              <View>
-                <Text style={[styles.specBoxVal, { color: colors.foreground }]} numberOfLines={1}>{v.owner}</Text>
-                <Text style={[styles.specBoxLabel, { color: colors.mutedForeground }]}>Owner Type</Text>
-              </View>
-            </View>
+            ) : null}
           </View>
 
-          {/* Pricing */}
-          <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
+          {/* Variant Line (Bold, Uppercase - Dynamic) */}
+          <Text style={[styles.variantTitle, { color: colors.foreground }]} numberOfLines={1}>
+            {(v.variant || `${v.brand} ${v.model}`).toUpperCase()}
+          </Text>
+
+          {/* Spec Line: Odometer • Owner • Fuel (Dynamic) */}
+          <Text style={[styles.specInlineText, { color: colors.mutedForeground }]}>
+            {[
+              v.odometer ? `${Number(v.odometer).toLocaleString('en-IN')} km` : null,
+              v.owner || null,
+              v.fuel || null,
+            ].filter(Boolean).join(' • ')}
+          </Text>
+
+          {/* Dashed Separator Line */}
+          <View style={[styles.dashedLine, { borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#E2E8F0' }]} />
+
+          {/* Bottom Pricing & Digital Countdown Row */}
+          <View style={styles.cardBottomRow}>
             <View>
-              <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>ACTUAL PRICE</Text>
-              <Text style={[styles.priceValue, { color: colors.mutedForeground }]}>{inr(v.basePrice)}</Text>
-            </View>
-            <View>
-              <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>
-                {isSoldOut ? 'WINNING BID' : 'HIGHEST BID'}
+              <Text style={[styles.bidPriceLabel, { color: colors.mutedForeground }]}>
+                {isSoldOut ? 'Winning Bid' : 'Highest Bid'}
               </Text>
-              <Text style={[styles.priceValue, { color: isLive ? '#10B981' : colors.foreground }]}>
-                {isComingSoon || !v.highestBid || v.bids === 0 ? 'No Bids' : inr(v.highestBid)}
+              <Text style={[styles.bidPriceValue, { color: colors.foreground }]}>
+                {inr(v.highestBid > 0 ? v.highestBid : v.basePrice)}
               </Text>
             </View>
-            <View style={styles.ctaWrap}>
-              {isLive ? (
-                <View style={styles.bidNowBtn}>
-                  <Text style={styles.bidNowText}>BID NOW</Text>
+
+            {/* Digital Countdown Box or Status Chip */}
+            {isLive ? (
+              <View style={[styles.digitalTimerBox, { backgroundColor: isDark ? '#231D2A' : '#FCE8EF' }]}>
+                <View style={styles.timerSegment}>
+                  <Text style={[styles.timerDigit, { color: isDark ? '#FFC700' : '#111827' }]}>
+                    {timerParts.hours}
+                  </Text>
+                  <Text style={[styles.timerUnit, { color: isDark ? 'rgba(255,255,255,0.5)' : '#6B7280' }]}>
+                    hr
+                  </Text>
                 </View>
-              ) : isSoldOut ? (
-                <View style={styles.soldChip}>
-                  <Text style={styles.soldChipText}>SOLD OUT</Text>
+
+                <View style={[styles.timerDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }]} />
+
+                <View style={styles.timerSegment}>
+                  <Text style={[styles.timerDigit, { color: isDark ? '#FFC700' : '#111827' }]}>
+                    {timerParts.minutes}
+                  </Text>
+                  <Text style={[styles.timerUnit, { color: isDark ? 'rgba(255,255,255,0.5)' : '#6B7280' }]}>
+                    min
+                  </Text>
                 </View>
-              ) : isEnded ? (
-                <View style={styles.endedChip}>
-                  <Text style={[styles.endedChipText, { color: colors.mutedForeground }]}>ENDED</Text>
+
+                <View style={[styles.timerDivider, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : '#E5E7EB' }]} />
+
+                <View style={styles.timerSegment}>
+                  <Text style={[styles.timerDigit, { color: isDark ? '#FFC700' : '#111827' }]}>
+                    {timerParts.seconds}
+                  </Text>
+                  <Text style={[styles.timerUnit, { color: isDark ? 'rgba(255,255,255,0.5)' : '#6B7280' }]}>
+                    sec
+                  </Text>
                 </View>
-              ) : (
-                <View style={styles.scheduledPill}>
-                  {timeRemaining !== 'Ended' && (
-                    <Text style={styles.scheduledText}>IN {timeRemaining}</Text>
-                  )}
-                  <ChevronRight size={13} color="#FFC700" />
-                </View>
-              )}
-            </View>
+              </View>
+            ) : isComingSoon ? (
+              <View style={[styles.soldChip, { backgroundColor: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.3)' }]}>
+                <Text style={[styles.soldChipText, { color: '#818CF8' }]}>COMING SOON</Text>
+              </View>
+            ) : isSoldOut ? (
+              <View style={styles.soldChip}>
+                <Text style={styles.soldChipText}>SOLD OUT</Text>
+              </View>
+            ) : (
+              <View style={styles.endedChip}>
+                <Text style={[styles.endedChipText, { color: colors.mutedForeground }]}>ENDED</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -492,43 +545,47 @@ const styles = StyleSheet.create({
 
   listContainer: { padding: 14, gap: 16, paddingBottom: 40 },
   card: { borderRadius: 18, borderWidth: 1.2, overflow: 'hidden' },
-  imageWrap: { position: 'relative', height: 150 },
+  imageWrap: { position: 'relative', height: 180 },
   image: { width: '100%', height: '100%' },
-  imageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)' },
-  liveBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#059669', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  livePing: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FFFFFF' },
+  imageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.1)' },
+  liveBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#059669', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  livePing: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
   liveBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  soonBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#6366F1', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  soonBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6366F1', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   soonBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   verifiedBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4 },
   verifiedBadgeText: { color: '#059669', fontSize: 8.5, fontWeight: '800', letterSpacing: 0.4 },
   heartBtn: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   heartBtnFav: { backgroundColor: '#F43F5E', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
 
-  specsBar: { flexDirection: 'row', marginHorizontal: 10, marginTop: -14, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 4, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
-  specCell: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  specVal: { fontSize: 10.5, fontWeight: '800' },
-  specLabel: { fontSize: 8, fontWeight: '600', textTransform: 'uppercase' },
+  locationPill: { position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  locationPillText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  dotsRow: { position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.5)' },
+  dotActive: { backgroundColor: '#FFFFFF', width: 6, height: 6, borderRadius: 3 },
 
-  cardBody: { padding: 12 },
-  cardTitle: { fontSize: 15, fontWeight: '900', letterSpacing: -0.3 },
-  cardSub: { fontSize: 10.5, fontWeight: '600', marginTop: 2 },
-  specsGrid: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  specBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 7 },
-  specBoxVal: { fontSize: 10.5, fontWeight: '800' },
-  specBoxLabel: { fontSize: 8, fontWeight: '600', textTransform: 'uppercase' },
+  cardBody: { padding: 14 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  yearBrandModel: { fontSize: 13, fontWeight: '700' },
+  engineRatingPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  engineRatingText: { color: '#10B981', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.3 },
+  variantTitle: { fontSize: 16, fontWeight: '900', letterSpacing: -0.2, marginTop: 1 },
+  specInlineText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
 
-  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 8 },
-  priceLabel: { fontSize: 8, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
-  priceValue: { fontSize: 13, fontWeight: '900', marginTop: 1 },
-  ctaWrap: { alignItems: 'flex-end' },
-  bidNowBtn: { backgroundColor: '#FFC700', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-  bidNowText: { color: '#0D0E12', fontSize: 10.5, fontWeight: '900', letterSpacing: 0.3 },
-  endedLabel: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  dashedLine: { borderTopWidth: 1, borderStyle: 'dashed', marginVertical: 12 },
+
+  cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bidPriceLabel: { fontSize: 11, fontWeight: '700' },
+  bidPriceValue: { fontSize: 18, fontWeight: '900', marginTop: 1 },
+
+  digitalTimerBox: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, gap: 8 },
+  timerSegment: { alignItems: 'center' },
+  timerDigit: { fontSize: 14, fontWeight: '900', lineHeight: 16 },
+  timerUnit: { fontSize: 9, fontWeight: '800' },
+  timerDivider: { width: 1, height: 18 },
+
   soldChip: { backgroundColor: 'rgba(244,63,94,0.15)', borderWidth: 1, borderColor: 'rgba(244,63,94,0.35)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   soldChipText: { color: '#F43F5E', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
   endedChip: { backgroundColor: 'rgba(148,163,184,0.12)', borderWidth: 1, borderColor: 'rgba(148,163,184,0.3)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   endedChipText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
-  scheduledPill: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  scheduledText: { color: '#FFC700', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.3 },
 });

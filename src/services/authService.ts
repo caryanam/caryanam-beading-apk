@@ -1,5 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiClient } from '../config/api';
+import { apiClient, API_BASE_URL } from '../config/api';
+import axios from 'axios';
+
+// Public HTTP client without JWT Bearer token auto-injection
+const publicClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
 
 export interface UserSession {
   id?: number;
@@ -15,7 +25,7 @@ export const authService = {
   // Login user (Dealer / Inspector / Admin)
   async login(email: string, password: string): Promise<UserSession> {
     try {
-      const response = await apiClient.post('/api/auth/login', {
+      const response = await publicClient.post('/api/auth/login', {
         email,
         password,
       });
@@ -59,7 +69,7 @@ export const authService = {
     city?: string;
   }) {
     try {
-      const response = await apiClient.post('/api/dealer/register', {
+      const response = await publicClient.post('/api/dealer/register', {
         ...data,
         confirmPassword: data.password,
       });
@@ -87,7 +97,7 @@ export const authService = {
     password: string;
   }) {
     try {
-      const response = await apiClient.post('/api/inspector/register', {
+      const response = await publicClient.post('/api/inspector/register', {
         ...data,
         confirmPassword: data.password,
       });
@@ -110,7 +120,7 @@ export const authService = {
   // Send OTP
   async sendOtp(email: string, mobile?: string): Promise<boolean> {
     try {
-      const response = await apiClient.post('/api/auth/send-otp', { email, mobile });
+      const response = await publicClient.post('/api/auth/send-otp', { email, mobile });
       return response.data?.success ?? true;
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Failed to send OTP.';
@@ -121,7 +131,7 @@ export const authService = {
   // Send password reset OTP
   async sendPasswordOtp(email: string): Promise<boolean> {
     try {
-      const response = await apiClient.post('/api/auth/send-password-otp', { email });
+      const response = await publicClient.post('/api/auth/send-password-otp', { email });
       return response.data?.success ?? true;
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Failed to send OTP.';
@@ -132,12 +142,65 @@ export const authService = {
   // Verify OTP
   async verifyOtp(email: string, otp: string): Promise<boolean> {
     try {
-      const response = await apiClient.post('/api/auth/verify-otp', { email, otp });
+      const response = await publicClient.post('/api/auth/verify-otp', { email, otp });
       return response.data?.success ?? false;
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Invalid or expired OTP.';
       throw new Error(msg);
     }
+  },
+
+  // Reset password with OTP
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<boolean> {
+    const payload = {
+      email,
+      otp,
+      newPassword,
+      password: newPassword,
+      confirmPassword: newPassword,
+    };
+
+    const endpoints = [
+      { method: 'post', url: '/api/auth/reset-password' },
+      { method: 'put', url: '/api/auth/reset-password' },
+      { method: 'post', url: '/api/auth/update-password' },
+      { method: 'put', url: '/api/auth/update-password' },
+      { method: 'post', url: '/api/auth/change-password' },
+      { method: 'put', url: '/api/auth/change-password' },
+      { method: 'post', url: '/api/auth/forgot-password' },
+      { method: 'put', url: '/api/auth/forgot-password' },
+    ];
+
+    let lastError: any = null;
+
+    for (const ep of endpoints) {
+      try {
+        const res = ep.method === 'put'
+          ? await publicClient.put(ep.url, payload)
+          : await publicClient.post(ep.url, payload);
+        
+        if (res.data?.success !== false) {
+          return true;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const status = err.response?.status;
+        const msg = String(err.response?.data?.message || err.response?.data || '');
+        // If 404 or Spring Boot static resource error, try next candidate endpoint
+        if (status === 404 || msg.includes('No static resource') || msg.includes('Not Found')) {
+          continue;
+        }
+        // If real API error (e.g. 400 invalid OTP), throw original error message
+        const realMsg = err.response?.data?.message || err.message || 'Password reset failed.';
+        throw new Error(realMsg);
+      }
+    }
+
+    const finalMsg =
+      lastError?.response?.data?.message ||
+      lastError?.message ||
+      'Password reset failed. Please check backend endpoint.';
+    throw new Error(finalMsg);
   },
 
   // Read active stored session

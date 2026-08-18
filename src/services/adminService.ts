@@ -155,24 +155,24 @@ export const adminService = {
 
     const config = Platform.OS === 'android'
       ? {
-          fileCache: true,
-          path: filePath,
-          appendExt: 'pdf',
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: true,
-            path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
-            description: `Admin Inspection Report #${id}`,
-            title: filename,
-            mime: 'application/pdf',
-            mediaScannable: true,
-          },
-        }
+        fileCache: true,
+        path: filePath,
+        appendExt: 'pdf',
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
+          description: `Admin Inspection Report #${id}`,
+          title: filename,
+          mime: 'application/pdf',
+          mediaScannable: true,
+        },
+      }
       : {
-          fileCache: true,
-          path: filePath,
-          appendExt: 'pdf',
-        };
+        fileCache: true,
+        path: filePath,
+        appendExt: 'pdf',
+      };
 
     const res = await ReactNativeBlobUtil.config(config).fetch('GET', url, {
       Authorization: `Bearer ${token}`,

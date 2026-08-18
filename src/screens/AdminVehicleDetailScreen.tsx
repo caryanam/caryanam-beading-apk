@@ -29,6 +29,7 @@ import { API_BASE_URL } from '../config/api';
 import { Linking, TextInput } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
+import Video from 'react-native-video';
 
 interface AdminVehicleDetailScreenProps {
   navigation: any;
@@ -304,8 +305,15 @@ export const AdminVehicleDetailScreen: React.FC<AdminVehicleDetailScreenProps> =
     }
     if (isVideoUrl(resolved)) {
       return (
-        <View style={[styles.mediaBox, { backgroundColor: '#000' }]}>
-          <Text style={styles.videoPlaceholderText}>VIDEO: {label}</Text>
+        <View style={[styles.mediaBox, { backgroundColor: '#000', overflow: 'hidden' }]}>
+          <Video
+            source={{ uri: resolved }}
+            style={{ width: '100%', height: '100%' }}
+            controls={true}
+            resizeMode="contain"
+            paused={false}
+            muted={true}
+          />
         </View>
       );
     }
@@ -505,9 +513,19 @@ export const AdminVehicleDetailScreen: React.FC<AdminVehicleDetailScreenProps> =
                       { label: 'Registration Number', value: vehicleDetails?.vehicleNumber, gold: true },
                       { label: 'Make & Model', value: `${vehicleDetails?.brand} ${vehicleDetails?.model} ${vehicleDetails?.variant}` },
                       { label: 'Manufacturing Year', value: vehicleDetails?.manufacturingYear },
+                      { label: 'Registration Year', value: vehicleDetails?.registrationYear || 'N/A' },
                       { label: 'Fuel Type & Transmission', value: `${vehicleDetails?.fuelType} / ${vehicleDetails?.transmission}` },
                       { label: 'Odometer Reading', value: vehicleDetails?.odometerReading ? `${vehicleDetails.odometerReading} km` : 'N/A' },
                       { label: 'Insurance Status', value: vehicleDetails?.insuranceStatus },
+                      { label: 'Location', value: vehicleDetails?.location || 'N/A' },
+                      { label: 'RTO Information', value: vehicleDetails?.rtoInformation || vehicleDetails?.rto || 'N/A' },
+                      { label: 'RS Availability', value: vehicleDetails?.rsAvailability || vehicleDetails?.roadsideAssistance || 'N/A' },
+                      { label: 'Duplicate Key', value: vehicleDetails?.duplicateKey || 'N/A' },
+                      { label: 'RTO NOC Issued', value: vehicleDetails?.rtoNocIssued || vehicleDetails?.rtoNoc || 'N/A' },
+                      { label: 'Under Hypothecation', value: vehicleDetails?.underHypothecation || vehicleDetails?.hypothecation || 'N/A' },
+                      { label: 'Mismatch in RC', value: vehicleDetails?.mismatchInRc || vehicleDetails?.rcMismatch || 'N/A' },
+                      { label: 'Road Tax Paid', value: vehicleDetails?.roadTaxPaid || vehicleDetails?.roadTax || 'N/A' },
+                      { label: 'Fitness Valid Upto', value: vehicleDetails?.fitnessUpto || vehicleDetails?.fitnessDate || 'N/A' },
                       { label: 'Suggested Price Valuation', value: vehicleDetails?.suggestedPrice ? inr(vehicleDetails.suggestedPrice) : 'N/A', gold: true },
                     ])}
                   </View>
@@ -1248,7 +1266,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   specCell: {
-    width: '48%',
+    width: '100%',
     flexGrow: 1,
     borderWidth: 1,
     borderRadius: 14,
@@ -1277,11 +1295,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   itemCard: {
-    width: '48%',
+    width: '100%',
     flexGrow: 1,
     borderWidth: 1,
     borderRadius: 14,
-    padding: 10,
+    padding: 12,
     gap: 8,
   },
   itemHeader: {
@@ -1317,8 +1335,8 @@ const styles = StyleSheet.create({
   },
   mediaBox: {
     width: '100%',
-    height: 90,
-    borderRadius: 10,
+    height: 180,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
   },
@@ -1354,11 +1372,11 @@ const styles = StyleSheet.create({
     marginTop: 34,
   },
   photoCard: {
-    width: '48%',
+    width: '100%',
     flexGrow: 1,
     borderWidth: 1,
     borderRadius: 14,
-    padding: 10,
+    padding: 12,
     gap: 8,
   },
   photoLabel: {
@@ -1419,11 +1437,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   toolkitCard: {
-    width: '48%',
+    width: '100%',
     flexGrow: 1,
     borderWidth: 1,
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

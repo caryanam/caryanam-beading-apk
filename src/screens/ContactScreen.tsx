@@ -57,7 +57,7 @@ export const ContactScreen: React.FC = () => {
             <View style={styles.infoTextCol}>
               <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>MOBILE CONTACT NUMBER</Text>
               <Text style={[styles.infoVal, { color: '#FFC700', fontWeight: '900', fontSize: 16 }]}>
-                +91 7030682123
+                +91 7755994123
               </Text>
             </View>
           </View>

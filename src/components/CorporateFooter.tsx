@@ -38,7 +38,7 @@ export const CorporateFooter: React.FC = () => {
           </View>
           <View style={styles.contactItemRow}>
             <Phone size={14} color="#FFC700" />
-            <Text style={[styles.footerContactText, { color: '#E5E7EB', marginLeft: 6 }]}>+91 7030682123</Text>
+            <Text style={[styles.footerContactText, { color: '#E5E7EB', marginLeft: 6 }]}>+91 7755994123</Text>
           </View>
           <View style={styles.contactItemRow}>
             <MapPin size={14} color="#FFC700" />

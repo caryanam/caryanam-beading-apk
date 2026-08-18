@@ -59,7 +59,7 @@ export const inspectorService = {
     return res.data;
   },
 
-    // Download & open the inspection PDF report
+  // Download & open the inspection PDF report
   async downloadPdf(id: number) {
     const sessionData = await AsyncStorage.getItem('user_session');
     const session = sessionData ? JSON.parse(sessionData) : null;
@@ -88,24 +88,24 @@ export const inspectorService = {
 
     const config = Platform.OS === 'android'
       ? {
-          fileCache: true,
-          path: filePath,
-          appendExt: 'pdf',
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: true,
-            path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
-            description: `Inspection Report #${id}`,
-            title: filename,
-            mime: 'application/pdf',
-            mediaScannable: true,
-          },
-        }
+        fileCache: true,
+        path: filePath,
+        appendExt: 'pdf',
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
+          description: `Inspection Report #${id}`,
+          title: filename,
+          mime: 'application/pdf',
+          mediaScannable: true,
+        },
+      }
       : {
-          fileCache: true,
-          path: filePath,
-          appendExt: 'pdf',
-        };
+        fileCache: true,
+        path: filePath,
+        appendExt: 'pdf',
+      };
 
     const res = await ReactNativeBlobUtil.config(config).fetch('GET', url, {
       Authorization: `Bearer ${token}`,
