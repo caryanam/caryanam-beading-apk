@@ -608,16 +608,19 @@ export const AdminVehicleDetailScreen: React.FC<AdminVehicleDetailScreenProps> =
                     <View style={styles.panelBody}>
                       <View style={styles.grid2}>
                         {mechanicalLabels.map((item, idx) => {
-                          const matchedPhoto = (previewData?.inspectionPhotos || [])
-                            .concat(previewData?.inspectionVideos || [])
+                          const isNoiseItem = item.label.includes('Noise');
+                          const videoObj = isNoiseItem
+                            ? ((previewData?.inspectionVideos || []).find((v: any) => v && (v.videoUrl || v.url || v.imageUrl)) ||
+                               (previewData?.videoUrl ? { videoUrl: previewData.videoUrl } : null))
+                            : null;
+
+                          const matchedPhoto = videoObj || (previewData?.inspectionPhotos || [])
                             .filter((p: any) => p && (p.imageUrl || p.videoUrl || p.url))
                             .find(
                               (p: any) =>
                                 p.photoType?.toUpperCase() === item.label.toUpperCase() ||
                                 p.imageCategory?.toUpperCase() === item.label.toUpperCase() ||
-                                p.displayName?.toUpperCase() === item.label.toUpperCase() ||
-                                (item.label.includes('Noise') &&
-                                  (p.imageCategory?.toUpperCase().includes('NOISE') || p.displayName?.toUpperCase().includes('NOISE'))),
+                                p.displayName?.toUpperCase() === item.label.toUpperCase()
                             );
                           const rawUrl = matchedPhoto?.imageUrl || matchedPhoto?.videoUrl || matchedPhoto?.url;
                           return (

@@ -31,6 +31,15 @@ import { InspectorProfileScreen } from '../screens/InspectorProfileScreen';
 import { InspectorVehiclesScreen } from '../screens/InspectorVehiclesScreen';
 import { InspectorVehicleDetailScreen } from '../screens/InspectorVehicleDetailScreen';
 import { InspectorAddVehicleScreen } from '../screens/InspectorAddVehicleScreen';
+import { FreelancerDashboardScreen } from '../screens/FreelancerDashboardScreen';
+import { FreelancerProfileScreen } from '../screens/FreelancerProfileScreen';
+import { FreelancerVehiclesScreen } from '../screens/FreelancerVehiclesScreen';
+import { FreelancerVehicleDetailScreen } from '../screens/FreelancerVehicleDetailScreen';
+import { FreelancerAddVehicleScreen } from '../screens/FreelancerAddVehicleScreen';
+import { AdminFreelancersScreen } from '../screens/AdminFreelancersScreen';
+import { AdminFreelancerVehicleDetailScreen } from '../screens/AdminFreelancerVehicleDetailScreen';
+import { DealerFreelancerVehiclesScreen } from '../screens/DealerFreelancerVehiclesScreen';
+import { DealerFreelancerVehicleDetailScreen } from '../screens/DealerFreelancerVehicleDetailScreen';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { ToastProvider, useToast } from '../context/ToastContext';
 import { SidebarDrawer } from '../components/SidebarDrawer';
@@ -306,6 +315,37 @@ const NavigationContent = () => {
             options={{ title: 'Perform Evaluation', headerShown: false }}
           >
             {props => <InspectorAddVehicleScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+
+          {/* Freelancer Routes */}
+          <Stack.Screen name="FreelancerDashboard" options={{ title: 'Freelancer Console', headerShown: false }}>
+            {props => <FreelancerDashboardScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="FreelancerProfile" options={{ title: 'Profile & Settings', headerShown: false }}>
+            {props => <FreelancerProfileScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="FreelancerVehicles" options={{ title: 'My Vehicles', headerShown: false }}>
+            {props => <FreelancerVehiclesScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="FreelancerVehicleDetail" options={{ title: 'Inspection Details', headerShown: false }}>
+            {props => <FreelancerVehicleDetailScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="FreelancerAddVehicle" options={{ title: 'Perform Evaluation', headerShown: false }}>
+            {props => <FreelancerAddVehicleScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+
+          {/* Admin & Dealer Freelancer Additions */}
+          <Stack.Screen name="AdminFreelancers" options={{ title: 'Freelancers Management', headerShown: false }}>
+            {props => <AdminFreelancersScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="AdminFreelancerVehicleDetail" options={{ title: 'Freelancer Vehicle Detail', headerShown: false }}>
+            {props => <AdminFreelancerVehicleDetailScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="DealerFreelancerVehicles" options={{ title: 'Freelancer Vehicles', headerShown: false }}>
+            {props => <DealerFreelancerVehiclesScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="DealerFreelancerVehicleDetail" options={{ title: 'Freelancer Vehicle Details', headerShown: false }}>
+            {props => <DealerFreelancerVehicleDetailScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
           </Stack.Screen>
         </Stack.Navigator>
 

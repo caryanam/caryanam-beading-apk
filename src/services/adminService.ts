@@ -10,6 +10,12 @@ export const adminService = {
     return res.data;
   },
 
+  // Get all freelancer inspections for admin
+  async getFreelancerInspections() {
+    const res = await apiClient.get('/api/freelancer/inspection');
+    return res.data;
+  },
+
   // Get admin notifications
   async getAdminNotifications() {
     const res = await apiClient.get('/api/admin/notifications');
@@ -58,6 +64,12 @@ export const adminService = {
   // Get all registered inspectors list
   async getRegisteredInspectors() {
     const res = await apiClient.get('/api/admin/inspectors');
+    return res.data;
+  },
+
+  // Get all registered freelancers list
+  async getRegisteredFreelancers() {
+    const res = await apiClient.get('/api/admin/freelancers');
     return res.data;
   },
 
@@ -112,8 +124,10 @@ export const adminService = {
   },
 
   // Start live auction (Go Live)
-  async startLiveAuction(inspectionId: number) {
-    const res = await apiClient.put(`/api/admin/inspection/${inspectionId}/go-live`);
+  async startLiveAuction(inspectionId: number, durationMinutes?: number) {
+    const res = await apiClient.put(`/api/admin/inspection/${inspectionId}/go-live`, null, {
+      params: durationMinutes ? { duration: durationMinutes } : undefined
+    });
     return res.data;
   },
 

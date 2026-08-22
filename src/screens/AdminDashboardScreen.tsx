@@ -22,6 +22,7 @@ import {
   Gavel,
   TrendingUp,
   Users,
+  User,
   Building2,
   Store,
   ReceiptText,
@@ -38,6 +39,7 @@ import {
   ShieldCheck, Download,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
+import { freelancerService } from '../services/freelancerService';
 import { AdminNotificationsModal } from '../components/AdminNotificationsModal';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -207,9 +209,9 @@ const SvgDonutChart: React.FC<{ data: PieChartItem[]; colors: any; theme: string
                 {item.name}
               </Text>
             </View>
-            <View style={[styles.pieLegendPill, { backgroundColor: item.color }]}>
-              <Text style={styles.pieLegendPillText}>{item.pct}%</Text>
-            </View>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: colors.foreground }}>
+              {item.value}
+            </Text>
           </View>
         ))}
       </View>
@@ -226,6 +228,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
   // Telemetry States
   const [inspections, setInspections] = useState<any[]>([]);
   const [dealers, setDealers] = useState<any[]>([]);
+  const [freelancersCount, setFreelancersCount] = useState<number>(0);
 
   // Message Sending states mapped by inspectionId
   const [messages, setMessages] = useState<Record<number, string>>({});
@@ -245,16 +248,36 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
 
   const fetchAdminData = async () => {
     try {
-      const [insRes, dealRes] = await Promise.all([
-        adminService.getSubmittedInspections(),
-        adminService.getRegisteredDealers(),
+      const [insRes, dealRes, freeUsersRes, freeInsRes] = await Promise.all([
+        adminService.getSubmittedInspections(), 
+        adminService.getRegisteredDealers(), 
+        adminService.getRegisteredFreelancers(),
+        freelancerService.getMyInspections()
       ]);
+      
+      let combinedInspections: any[] = [];
       if (insRes.success && insRes.data) {
-        setInspections(insRes.data);
+        combinedInspections = [...insRes.data];
       }
-      if (dealRes.success && dealRes.data) {
-        setDealers(dealRes.data);
+      if (freeInsRes?.success && freeInsRes?.data) {
+        const freeIns = freeInsRes.data.map((item: any) => {
+          let curStatus = String(item.status || item.vehicleStatus || 'APPROVED').toUpperCase();
+          if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes(curStatus)) {
+            curStatus = 'APPROVED';
+          }
+          return {
+            ...item,
+            inspectionId: item.inspectionId || item.id,
+            vehicleNumber: item.vehicleNumber || item.registrationNumber || item.regNo || `INS-${item.id}`,
+            sourceType: 'FREELANCER',
+            status: curStatus,
+          };
+        });
+        combinedInspections = [...combinedInspections, ...freeIns];
       }
+      setInspections(combinedInspections);
+      if (dealRes.success && dealRes.data) { setDealers(dealRes.data); }
+      if (freeUsersRes?.success && freeUsersRes?.data) { setFreelancersCount(freeUsersRes.data.length); } else if (Array.isArray(freeUsersRes)) { setFreelancersCount(freeUsersRes.length); }
     } catch (err: any) {
       console.error('Failed to load admin dashboard data', err);
     } finally {
@@ -294,6 +317,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
       pending,
       inspectors: uniqueInspectors,
       dealers: dealers.length,
+      freelancers: freelancersCount,
     };
   }, [inspections, dealers]);
 
@@ -315,11 +339,18 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
   const inspectionBreakdown = useMemo(() => {
     const approved = inspections.filter((ins) => ins.status === 'APPROVED').length;
     const pending = inspections.filter((ins) => ins.status === 'SUBMITTED').length;
-    const total = approved + pending || 1;
+    const rejected = inspections.filter((ins) => ins.status === 'REJECTED').length;
+    const drafts = inspections.filter(
+      (ins) => ins.status === 'DRAFT' || ins.status === 'IN_PROGRESS'
+    ).length;
+
+    const total = approved + pending + rejected + drafts || 1;
 
     return [
       { name: 'Approved', value: approved, pct: Math.round((approved / total) * 100), color: '#10B981' },
       { name: 'Pending Approval', value: pending, pct: Math.round((pending / total) * 100), color: '#FFC700' },
+      { name: 'Rejected', value: rejected, pct: Math.round((rejected / total) * 100), color: '#EF4444' },
+      { name: 'Drafts', value: drafts, pct: Math.round((drafts / total) * 100), color: '#696974' },
     ];
   }, [inspections]);
 
@@ -414,7 +445,8 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
     { icon: CheckCircle2, label: 'Inspected & Approved', value: stats.approved, color: '#10B981', bg: 'rgba(16,185,129,0.12)', delta: 'Ready for auction' },
     { icon: Gavel, label: 'Running Auctions', value: stats.running, color: '#FFC700', bg: 'rgba(255,199,0,0.12)', delta: 'Live right now' },
     { icon: TrendingUp, label: 'Pending Reviews', value: stats.pending, color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', delta: 'Needs attention' },
-    { icon: Users, label: 'Inspectors', value: stats.inspectors, color: '#6366F1', bg: 'rgba(99,102,241,0.12)', delta: 'Field partners' },
+    { icon: Users, label: 'Active Inspectors', value: stats.inspectors, color: '#6366F1', bg: 'rgba(99,102,241,0.12)', delta: 'Field partners' },
+    { icon: User, label: 'Total Freelancers', value: stats.freelancers, color: '#F43F5E', bg: 'rgba(244,63,94,0.12)', delta: 'Freelancer submitters' },
     { icon: Building2, label: 'Verified Dealers', value: stats.dealers, color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', delta: 'Onboarded buyers' },
   ];
 

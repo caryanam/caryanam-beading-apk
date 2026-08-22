@@ -94,16 +94,17 @@ const mapVehicle = (v: any): any => {
     auction,
     image: v.vehicleImage || v.imageUrl || v.image || 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80',
     endsAt: v.auctionEndTime || v.endsAt || undefined,
-    inspector: v.inspectorName || v.evaluator || '',
+    inspector: v.freelancerName || v.inspectorName || (v.inspectorId ? `Freelancer #${v.inspectorId}` : "Freelancer"),
+    isFreelancer: true,
   };
 };
 
-interface DealerMarketplaceScreenProps {
+interface DealerFreelancerVehiclesScreenProps {
   navigation: any;
   onOpenMenu: () => void;
 }
 
-export const DealerMarketplaceScreen: React.FC<DealerMarketplaceScreenProps> = ({ navigation, onOpenMenu }) => {
+export const DealerFreelancerVehiclesScreen: React.FC<DealerFreelancerVehiclesScreenProps> = ({ navigation, onOpenMenu }) => {
   const { theme, colors } = useTheme();
   const { showToast } = useToast();
   const isDark = theme === 'dark';
@@ -119,22 +120,26 @@ const [inspections, setInspections] = useState<any[]>([]);
   const [favIds, setFavIds] = useState<Set<number>>(new Set());
   const [openFilter, setOpenFilter] = useState<string | null>(null);
 
-  const fetchMarketplace = async (showMsg = false) => {
+  const fetchFreelancerVehicles = async (showMsg = false) => {
     if (showMsg) setRefreshing(true);
     try {
       const [marketRes, wishlistRes] = await Promise.all([
-        dealerService.getMarketplace(),
+        dealerService.getFreelancerVehicles(),
         dealerService.getWishlist(),
       ]);
       if (marketRes.success && marketRes.data) {
-        setInspections(marketRes.data);
-        if (showMsg) showToast({ message: 'Marketplace refreshed', type: 'success' });
+        const valid = marketRes.data.filter((item: any) => {
+          const s = String(item.status || item.vehicleStatus || '').toUpperCase();
+          return s !== 'DRAFT' && s !== 'IN_PROGRESS';
+        });
+        setInspections(valid);
+        if (showMsg) showToast({ message: 'Freelancer vehicles refreshed', type: 'success' });
       }
       if (wishlistRes.success && wishlistRes.data) {
         setFavIds(new Set(wishlistRes.data.map((w: any) => w.inspectionId || w.id)));
       }
     } catch {
-      if (showMsg) showToast({ message: 'Could not load marketplace vehicles.', type: 'error' });
+      if (showMsg) showToast({ message: 'Could not load freelancer vehicles.', type: 'error' });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -158,11 +163,11 @@ const [inspections, setInspections] = useState<any[]>([]);
   };
 
   useEffect(() => {
-    fetchMarketplace();
+    fetchFreelancerVehicles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onRefresh = () => fetchMarketplace(true);
+  const onRefresh = () => fetchFreelancerVehicles(true);
 
   const mappedVehicles = useMemo(() => inspections.map(mapVehicle), [inspections]);
 
@@ -202,7 +207,7 @@ const filtered = useMemo(() => {
           <Menu size={20} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Marketplace</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Freelancer Vehicles</Text>
           {filtered.length > 0 && <Text style={[styles.headerCount, { color: colors.mutedForeground }]}>({filtered.length})</Text>}
         </View>
         <View style={styles.headerRightActions}>
@@ -297,7 +302,7 @@ const filtered = useMemo(() => {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color="#FFC700" size="large" />
-          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading marketplace...</Text>
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading Freelancer Vehicles...</Text>
         </View>
       ) : filtered.length === 0 ? (
         <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFC700" />}>
@@ -317,7 +322,7 @@ const filtered = useMemo(() => {
           showsVerticalScrollIndicator={false}
         >
 {filtered.map((v) => (
-            <MarketplaceVehicleCard
+            <FreelancerVehicleCard
               key={v.id}
               v={v}
               navigation={navigation}
@@ -334,7 +339,7 @@ const filtered = useMemo(() => {
   );
 };
 
-interface MarketplaceVehicleCardProps {
+interface FreelancerVehicleCardProps {
   v: any;
   navigation: any;
   colors: any;
@@ -343,7 +348,7 @@ interface MarketplaceVehicleCardProps {
   isFavourite: boolean;
   onToggleFavourite: (id: number) => void;
 }
-const MarketplaceVehicleCard: React.FC<MarketplaceVehicleCardProps> = ({ v, navigation, colors, isDark, cardBg, isFavourite, onToggleFavourite }) => {
+const FreelancerVehicleCard: React.FC<FreelancerVehicleCardProps> = ({ v, navigation, colors, isDark, cardBg, isFavourite, onToggleFavourite }) => {
   const isLive = v.auction === 'live';
   const isComingSoon = v.auction === 'scheduled';
   const isSoldOut = v.auction === 'sold out';
@@ -357,15 +362,10 @@ const MarketplaceVehicleCard: React.FC<MarketplaceVehicleCardProps> = ({ v, navi
   }, [v.endsAt]);
 
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: cardBg, borderColor: colors.border },
-      ]}
-    >
+    <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.border }]}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('DealerVehicleDetail', { vehicleId: v.inspectionId })}
+        onPress={() => navigation.navigate('DealerFreelancerVehicleDetail', { vehicleId: v.inspectionId })}
       >
         {/* Top Image Section */}
         <View style={styles.imageWrap}>

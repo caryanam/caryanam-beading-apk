@@ -27,7 +27,7 @@ interface RegisterScreenProps {
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   const { theme, colors } = useTheme();
   const { showToast } = useToast();
-  const [role, setRole] = useState<'dealer' | 'inspector'>('dealer');
+  const [role, setRole] = useState<'dealer' | 'inspector' | 'freelancer'>('dealer');
   const [dealershipName, setDealershipName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
@@ -195,8 +195,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
           area: area.trim(),
           city: city.trim(),
         });
-      } else {
+      } else if (role === 'inspector') {
         await authService.registerInspector({
+          fullName: ownerName.trim(),
+          email: email.trim(),
+          mobile: mobile.trim(),
+          password: password,
+        });
+      } else if (role === 'freelancer') {
+        await authService.registerFreelancer({
           fullName: ownerName.trim(),
           email: email.trim(),
           mobile: mobile.trim(),
@@ -288,6 +295,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
             >
               <Text style={[styles.roleTabText, { color: colors.mutedForeground }, role === 'inspector' && styles.activeRoleTabText]}>
                 Inspector
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleTab, role === 'freelancer' && styles.activeRoleTab]}
+              onPress={() => {
+                setRole('freelancer');
+                setOtpError(null);
+              }}
+            >
+              <Text style={[styles.roleTabText, { color: colors.mutedForeground }, role === 'freelancer' && styles.activeRoleTabText]}>
+                Freelancer
               </Text>
             </TouchableOpacity>
           </View>

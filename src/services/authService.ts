@@ -15,14 +15,14 @@ export interface UserSession {
   id?: number;
   name: string;
   email: string;
-  role: 'admin' | 'dealer' | 'inspector';
+  role: 'admin' | 'dealer' | 'inspector' | 'freelancer';
   dealershipName?: string;
   mobileNumber?: string;
   token: string;
 }
 
 export const authService = {
-  // Login user (Dealer / Inspector / Admin)
+  // Login user (Dealer / Inspector / Admin / Freelancer)
   async login(email: string, password: string): Promise<UserSession> {
     try {
       const response = await publicClient.post('/api/auth/login', {
@@ -113,6 +113,34 @@ export const authService = {
         error.response?.data?.message ||
         error.message ||
         'Inspector registration failed.';
+      throw new Error(msg);
+    }
+  },
+
+  // Register new Freelancer
+  async registerFreelancer(data: {
+    fullName: string;
+    email: string;
+    mobile: string;
+    password: string;
+  }) {
+    try {
+      const response = await publicClient.post('/api/freelancer/register', {
+        ...data,
+        confirmPassword: data.password,
+      });
+
+      const resData = response.data;
+      if (resData.success) {
+        return resData.message || 'Freelancer registered successfully!';
+      } else {
+        throw new Error(resData.message || 'Registration failed.');
+      }
+    } catch (error: any) {
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        'Freelancer registration failed.';
       throw new Error(msg);
     }
   },

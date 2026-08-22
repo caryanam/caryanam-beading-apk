@@ -27,6 +27,7 @@ import {
   Gavel,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
+import { freelancerService } from '../services/freelancerService';
 import { AdminNotificationsModal } from '../components/AdminNotificationsModal';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -97,12 +98,14 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
   const [refreshing, setRefreshing] = useState(false);
   const [inspections, setInspections] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [activeTab, setActiveTab] = useState<'inspector' | 'freelancer'>(route?.params?.tab === 'freelancer' ? 'freelancer' : 'inspector');
   const [selectedInspector, setSelectedInspector] = useState<string | null>(null);
 
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [inspectorDropdownVisible, setInspectorDropdownVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>((route?.params as any)?.inspector || '');
 
   const isDark = theme === 'dark';
@@ -112,11 +115,33 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
   ).sort();
 
   const fetchInspections = async () => {
+    setLoading(true);
     try {
-      const res = await adminService.getSubmittedInspections();
-      const rawList = Array.isArray(res) ? res : (res?.data || res?.inspections || []);
-      if (Array.isArray(rawList)) {
-        setInspections(rawList);
+      if (activeTab === 'inspector') {
+        const res = await adminService.getSubmittedInspections();
+        const rawList = Array.isArray(res) ? res : (res?.data || res?.inspections || []);
+        if (Array.isArray(rawList)) {
+          setInspections(rawList);
+        }
+      } else {
+        const res = await freelancerService.getMyInspections();
+        let apiList: any[] = [];
+        if (res.success && res.data) {
+          apiList = res.data.filter((item: any) => {
+            const s = String(item.status || item.vehicleStatus || '').toUpperCase();
+            return s !== 'DRAFT' && s !== 'IN_PROGRESS';
+          }).map((item: any) => ({
+            ...item,
+            inspectionId: item.inspectionId || item.id,
+            vehicleNumber: item.vehicleNumber || item.registrationNumber || item.regNo || `INS-${item.inspectionId || item.id}`,
+            brand: item.brand || '',
+            model: item.model || '',
+            variant: item.variant || '',
+            inspectorName: item.freelancerName || item.inspectorName || (item.inspectorId ? `Freelancer #${item.inspectorId}` : 'N/A'),
+            sourceType: 'FREELANCER'
+          }));
+        }
+        setInspections(apiList);
       }
     } catch (err: any) {
       console.error('Failed to load vehicle inspections list', err);
@@ -129,7 +154,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
   useEffect(() => {
     fetchInspections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTab]);
 
   const onRefresh = () => { setRefreshing(true); fetchInspections(); };
 
@@ -257,56 +282,21 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
         </View>
       </View>
 
-      {/* Inspector Filter Row */}
-      {inspectorOptions.length > 0 && (
-        <View style={[styles.filterBar, { borderBottomColor: colors.border, backgroundColor: isDark ? '#0D0E12' : '#FFFFFF', paddingTop: 8, paddingBottom: 4 }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-            <TouchableOpacity
-              onPress={() => setSelectedInspector(null)}
-              style={[
-                styles.filterTab,
-                !selectedInspector
-                  ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
-                  : { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border },
-              ]}
-              activeOpacity={0.7}
-            >
-              <UserCheck size={11} color={!selectedInspector ? '#0D0E12' : colors.mutedForeground} style={{ marginRight: 4 }} />
-              <Text style={[styles.filterLabel, { color: !selectedInspector ? '#0D0E12' : colors.mutedForeground }]}>
-                All Inspectors ({inspections.length})
-              </Text>
-            </TouchableOpacity>
-
-            {inspectorOptions.map((name) => {
-              const active = selectedInspector === name;
-              const count = inspections.filter((i) => i.inspectorName === name).length;
-              return (
-                <TouchableOpacity
-                  key={name}
-                  onPress={() => setSelectedInspector(name)}
-                  style={[
-                    styles.filterTab,
-                    active
-                      ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
-                      : { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border },
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <UserCheck size={11} color={active ? '#0D0E12' : colors.mutedForeground} style={{ marginRight: 4 }} />
-                  <Text style={[styles.filterLabel, { color: active ? '#0D0E12' : colors.mutedForeground }]}>
-                    {name}
-                  </Text>
-                  <View style={[styles.filterCount, { backgroundColor: active ? 'rgba(0,0,0,0.15)' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)' }]}>
-                    <Text style={[styles.filterCountText, { color: active ? '#0D0E12' : colors.mutedForeground }]}>
-                      {count}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
+      {/* Tab Switcher */}
+      <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderRadius: 20, marginHorizontal: 16, marginTop: 12, marginBottom: 8, padding: 4 }}>
+        <TouchableOpacity 
+          style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'inspector' ? '#FFC700' : 'transparent', alignItems: 'center' }}
+          onPress={() => { setActiveTab('inspector'); setSelectedInspector(null); }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'inspector' ? '#0D0E12' : colors.mutedForeground }}>Inspectors</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'freelancer' ? '#FFC700' : 'transparent', alignItems: 'center' }}
+          onPress={() => { setActiveTab('freelancer'); setSelectedInspector(null); }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'freelancer' ? '#0D0E12' : colors.mutedForeground }}>Freelancers</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Filter Tabs */}
       <View style={[styles.filterBar, { borderBottomColor: colors.border, backgroundColor: isDark ? '#0D0E12' : '#FFFFFF' }]}>
@@ -341,22 +331,43 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
 
       {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: isDark ? '#0D0E12' : '#FFFFFF', borderBottomColor: colors.border }]}>
-        <View style={[styles.searchBar, { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
-          <Text style={{ fontSize: 14, marginRight: 8 }}>🔍</Text>
-          <TextInput
-            style={[styles.searchInput, { color: colors.foreground }]}
-            placeholder="Search by vehicle, owner, inspector..."
-            placeholderTextColor={colors.mutedForeground}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
-              <X size={15} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <View style={[styles.searchBar, { flex: 1, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
+            <Text style={{ fontSize: 14, marginRight: 8 }}>🔍</Text>
+            <TextInput
+              style={[styles.searchInput, { color: colors.foreground }]}
+              placeholder="Search by vehicle..."
+              placeholderTextColor={colors.mutedForeground}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+                <X size={15} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={{ 
+              backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', 
+              borderColor: selectedInspector ? '#FFC700' : colors.border,
+              borderWidth: 1,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              height: 44,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6
+            }}
+            onPress={() => setInspectorDropdownVisible(true)}
+          >
+            <UserCheck size={16} color={selectedInspector ? '#FFC700' : colors.mutedForeground} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: selectedInspector ? '#FFC700' : colors.foreground, maxWidth: 80 }} numberOfLines={1}>
+              {selectedInspector || (activeTab === 'inspector' ? 'All Inspectors' : 'All Freelancers')}
+            </Text>
+          </TouchableOpacity>
         </View>
         {searchQuery.length > 0 && (
           <Text style={[styles.searchResultCount, { color: colors.mutedForeground }]}>
@@ -547,7 +558,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
 
                                     <TouchableOpacity
                     style={[styles.pdfBtn, { backgroundColor: isDark ? '#1A1D28' : '#E8EBF0', marginRight: 6 }]}
-                    onPress={() => navigation.navigate('AdminVehicleDetail', { inspectionId: v.inspectionId, id: v.inspectionId, vehicleId: v.inspectionId })}
+                    onPress={() => navigation.navigate(activeTab === 'freelancer' ? 'AdminFreelancerVehicleDetail' : 'AdminVehicleDetail', { inspectionId: v.inspectionId, id: v.inspectionId, vehicleId: v.inspectionId })}
                     activeOpacity={0.75}
                   >
                     <Eye size={13} color="#FFC700" />
@@ -556,7 +567,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
 
                   <View style={{ flex: 1 }} />
 
-                  {(v.status || '').toUpperCase() !== 'DRAFT' && (
+                  {(v.status || '').toUpperCase() !== 'DRAFT' && activeTab !== 'freelancer' && (
                     <TouchableOpacity
                       style={[styles.pdfBtn, { backgroundColor: isDark ? '#1A1D28' : '#E8EBF0' }]}
                       onPress={() => handleDownloadPdf(v.inspectionId)}
@@ -616,6 +627,46 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
           </View>
         </View>
       </Modal>
+
+      {/* Inspector Selection Modal */}
+      <Modal visible={inspectorDropdownVisible} transparent animationType="fade" onRequestClose={() => setInspectorDropdownVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: isDark ? '#1A1D28' : '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '70%' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: colors.foreground }}>Filter by {activeTab === 'inspector' ? 'Inspector' : 'Freelancer'}</Text>
+              <TouchableOpacity onPress={() => setInspectorDropdownVisible(false)} style={{ padding: 4 }}>
+                <X size={20} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                onPress={() => { setSelectedInspector(null); setInspectorDropdownVisible(false); }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: !selectedInspector ? '800' : '500', color: !selectedInspector ? '#FFC700' : colors.foreground }}>All {activeTab === 'inspector' ? 'Inspectors' : 'Freelancers'} ({inspections.length})</Text>
+                {!selectedInspector && <CheckCircle2 size={18} color="#FFC700" />}
+              </TouchableOpacity>
+              {inspectorOptions.map(name => {
+                const count = inspections.filter(i => (i.inspectorName || i.inspector) === name).length;
+                const isSel = selectedInspector === name;
+                return (
+                  <TouchableOpacity
+                    key={name}
+                    style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => { setSelectedInspector(name); setInspectorDropdownVisible(false); }}
+                  >
+                    <Text style={{ fontSize: 15, fontWeight: isSel ? '800' : '500', color: isSel ? '#FFC700' : colors.foreground }}>
+                      {name} ({count})
+                    </Text>
+                    {isSel && <CheckCircle2 size={18} color="#FFC700" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };

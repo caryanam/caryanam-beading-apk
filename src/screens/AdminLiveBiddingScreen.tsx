@@ -166,6 +166,7 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'inspector' | 'freelancer'>('all');
 
   // Real-time tracking states for selected room
   const [highestBid, setHighestBid] = useState<number>(0);
@@ -200,21 +201,56 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
   const fetchRooms = async (showMsg = false) => {
     if (showMsg) setRefreshing(true);
     try {
-      const res = await adminService.getSubmittedInspections();
-      if (res.success && res.data) {
-        const liveOnly = res.data.filter(
-          (ins: any) => ins.status === 'APPROVED' && ins.vehicleStatus === 'LIVE',
-        );
-        setInspections(liveOnly);
-        if (
-          liveOnly.length > 0 &&
-          (selectedId === null || !liveOnly.some((i: any) => i.inspectionId === selectedId))
-        ) {
-          setSelectedId(liveOnly[0].inspectionId);
-        }
-        if (showMsg) showToast({ message: 'Active live bidding rooms refreshed', type: 'success' });
+      const [insRes, freeRes] = await Promise.all([
+        adminService.getSubmittedInspections(),
+        adminService.getFreelancerInspections()
+      ]);
+
+      let inspectorList = [];
+      if (insRes.success && insRes.data) {
+        inspectorList = insRes.data.map((ins: any) => ({
+          ...ins,
+          inspectionId: ins.inspectionId || ins.id,
+          sourceType: 'INSPECTOR',
+        }));
       }
-    } catch {
+
+      let freelancerList = [];
+      if (freeRes.success && freeRes.data) {
+        freelancerList = freeRes.data.map((item: any) => {
+          const insId = item.inspectionId || item.id;
+          return {
+            ...item,
+            inspectionId: insId,
+            vehicleNumber: item.vehicleNumber || item.registrationNumber || item.regNo || `INS-${insId}`,
+            brand: item.brand || '',
+            model: item.model || '',
+            variant: item.variant || '',
+            ownerName: item.ownerName || '1st Owner',
+            suggestedPrice: item.suggestedPrice || item.price || 0,
+            submittedAt: item.submittedAt || item.createdAt || null,
+            inspectorName: item.freelancerName || item.inspectorName || item.inspector?.fullName || (item.inspectorId ? `Freelancer #${item.inspectorId}` : 'Freelancer'),
+            status: item.status || 'APPROVED',
+            vehicleStatus: item.vehicleStatus || item.status || 'LIVE',
+            sourceType: 'FREELANCER',
+          };
+        });
+      }
+
+      const combined = [...inspectorList, ...freelancerList];
+      const liveOnly = combined.filter(
+        (ins: any) => String(ins.vehicleStatus || ins.status || '').toUpperCase() === 'LIVE'
+      );
+
+      setInspections(liveOnly);
+      if (
+        liveOnly.length > 0 &&
+        (selectedId === null || !liveOnly.some((i: any) => i.inspectionId === selectedId))
+      ) {
+        setSelectedId(liveOnly[0].inspectionId);
+      }
+      if (showMsg) showToast({ message: 'Active live bidding rooms refreshed', type: 'success' });
+    } catch (err) {
       if (showMsg) showToast({ message: 'Failed to refresh live rooms', type: 'error' });
     } finally {
       setLoading(false);
@@ -230,19 +266,33 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
 
   // Filtered rooms based on search query
   const filteredInspections = useMemo(() => {
-    if (!searchQuery.trim()) return inspections;
+    let list = inspections;
+    if (activeTab === 'inspector') {
+      list = list.filter((i: any) => i.sourceType === 'INSPECTOR');
+    } else if (activeTab === 'freelancer') {
+      list = list.filter((i: any) => i.sourceType === 'FREELANCER');
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
-    return inspections.filter(
+    return list.filter(
       (i) =>
         (i.brand || '').toLowerCase().includes(q) ||
         (i.model || '').toLowerCase().includes(q) ||
         (i.variant || '').toLowerCase().includes(q) ||
         (i.vehicleNumber || '').toLowerCase().includes(q),
     );
-  }, [inspections, searchQuery]);
+  }, [inspections, activeTab, searchQuery]);
+  // Auto-select first room when activeTab changes
+  useEffect(() => {
+    if (filteredInspections.length > 0 && (!selectedId || !filteredInspections.some(i => i.inspectionId === selectedId))) {
+      setSelectedId(filteredInspections[0].inspectionId);
+    } else if (filteredInspections.length === 0) {
+      setSelectedId(null);
+    }
+  }, [activeTab, filteredInspections]);
 
   // Initialize selected card details
-  useEffect(() => {
+useEffect(() => {
     if (!selectedRoom) return;
     setHighestBid(selectedRoom.currentHighestBid || selectedRoom.suggestedPrice || 0);
     setHighestBidder(selectedRoom.currentHighestBidder || 'No bids placed');
@@ -562,6 +612,19 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
             </Text>
           </View>
 
+          {/* Tab Filter */}
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', padding: 4, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+            <TouchableOpacity onPress={() => setActiveTab('all')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 8, backgroundColor: activeTab === 'all' ? '#FFC700' : 'transparent' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: activeTab === 'all' ? '#0D0E12' : colors.mutedForeground }}>All ({inspections.length})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('inspector')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 8, backgroundColor: activeTab === 'inspector' ? '#FFC700' : 'transparent' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: activeTab === 'inspector' ? '#0D0E12' : colors.mutedForeground }}>Inspector</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('freelancer')} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 8, backgroundColor: activeTab === 'freelancer' ? '#FFC700' : 'transparent' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: activeTab === 'freelancer' ? '#0D0E12' : colors.mutedForeground }}>Freelancer</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Search Bar */}
           <View style={[styles.searchBar, { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
             <Search size={15} color={colors.mutedForeground} />
@@ -608,9 +671,14 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
                   {isActive && <View style={styles.roomAccentBar} />}
 
                   <View style={styles.roomTopRow}>
-                    <View style={[styles.roomLiveChip, { backgroundColor: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.3)' }]}>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.roomLiveText}>Live Room</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.roomLiveChip, { backgroundColor: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.3)' }]}>
+                        <View style={styles.liveDot} />
+                        <Text style={styles.roomLiveText}>Live</Text>
+                      </View>
+                      <View style={[styles.roomLiveChip, { backgroundColor: v.sourceType === 'FREELANCER' ? 'rgba(168,85,247,0.1)' : 'rgba(59,130,246,0.1)', borderColor: v.sourceType === 'FREELANCER' ? 'rgba(168,85,247,0.3)' : 'rgba(59,130,246,0.3)' }]}>
+                        <Text style={[styles.roomLiveText, { color: v.sourceType === 'FREELANCER' ? '#A855F7' : '#3B82F6' }]}>{v.sourceType === 'FREELANCER' ? 'Freelancer' : 'Inspector'}</Text>
+                      </View>
                     </View>
                     <View style={styles.roomRegPill}>
                       <Text style={styles.roomRegText}>{v.vehicleNumber}</Text>

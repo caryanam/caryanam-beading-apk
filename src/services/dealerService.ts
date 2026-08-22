@@ -11,6 +11,12 @@ export const dealerService = {
     return res.data;
   },
 
+  // Get freelancer vehicles
+  async getFreelancerVehicles() {
+    const res = await apiClient.get('/api/freelancer/inspection');
+    return res.data;
+  },
+
   // Get dealer watchlist (wishlist)
   async getWishlist() {
     const res = await apiClient.get('/api/dealer/wishlist');

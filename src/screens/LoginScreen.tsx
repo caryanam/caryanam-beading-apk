@@ -93,6 +93,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         navigation.navigate('AdminDashboard');
       } else if (session.role === 'inspector') {
         navigation.navigate('InspectorDashboard');
+      } else if (session.role === 'freelancer') {
+        navigation.navigate('FreelancerDashboard');
       } else {
         navigation.navigate('DealerMarketplace');
       }

@@ -301,12 +301,50 @@ export const AdminAnalyticsScreen: React.FC<AdminAnalyticsScreenProps> = ({ onOp
   const fetchAnalytics = async (showMsg = false) => {
     if (showMsg) setRefreshing(true);
     try {
-      const [dealRes, insRes] = await Promise.all([
+      const [dealRes, insRes, freeRes] = await Promise.allSettled([
         adminService.getRegisteredDealers(),
         adminService.getSubmittedInspections(),
+        adminService.getFreelancerInspections ? adminService.getFreelancerInspections() : Promise.resolve({ success: false, data: [] })
       ]);
-      if (dealRes.success && dealRes.data) setDealers(dealRes.data);
-      if (insRes.success && insRes.data) setInspections(insRes.data);
+
+      if (dealRes.status === 'fulfilled' && dealRes.value?.success && dealRes.value?.data) {
+        setDealers(dealRes.value.data);
+      }
+
+      let inspectorList = [];
+      if (insRes.status === 'fulfilled' && insRes.value?.success && insRes.value?.data) {
+        inspectorList = insRes.value.data.map((ins: any) => ({
+          ...ins,
+          inspectionId: ins.inspectionId || ins.id,
+          sourceType: 'INSPECTOR',
+        }));
+      }
+
+      let freelancerList = [];
+      if (freeRes.status === 'fulfilled' && freeRes.value?.success && freeRes.value?.data) {
+        freelancerList = freeRes.value.data.map((item: any) => {
+          const insId = item.inspectionId || item.id;
+          let curStatus = String(item.status || item.vehicleStatus || 'APPROVED').toUpperCase();
+          if (curStatus === 'SUBMITTED' || curStatus === 'PENDING' || curStatus === 'PENDING_APPROVAL') {
+            curStatus = 'APPROVED';
+          }
+          return {
+            ...item,
+            inspectionId: insId,
+            vehicleNumber: item.vehicleNumber || item.registrationNumber || item.regNo || `INS-${insId}`,
+            brand: item.brand || '',
+            model: item.model || '',
+            variant: item.variant || '',
+            status: curStatus,
+            vehicleStatus: item.vehicleStatus || curStatus || 'LIVE',
+            sourceType: 'FREELANCER',
+          };
+        });
+      }
+
+      const combined = [...inspectorList, ...freelancerList];
+      setInspections(combined);
+
       if (showMsg) showToast({ message: 'Analytics refreshed', type: 'success' });
     } catch {
       showToast({ message: 'Failed to load analytics datasets.', type: 'error' });
@@ -485,47 +523,6 @@ export const AdminAnalyticsScreen: React.FC<AdminAnalyticsScreenProps> = ({ onOp
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFC700" />}
           showsVerticalScrollIndicator={false}
         >
-          {/* Stats Grid */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
-              <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(255,199,0,0.14)' }]}>
-                <IndianRupee size={16} color="#FFC700" />
-              </View>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>₹{grossBiddingValue.toLocaleString('en-IN')}</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Gross Bidding Volume</Text>
-              <Text style={[styles.statDelta, { color: colors.mutedForeground }]}>{totalBidsCount} total active bids</Text>
-            </View>
-
-            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
-              <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(148,163,184,0.14)' }]}>
-                <TrendingUp size={16} color="#94A3B8" />
-              </View>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{approvedCount}</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Approved Vehicles</Text>
-              <Text style={[styles.statDelta, { color: colors.mutedForeground }]}>Out of {totalInspections} submitted</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
-              <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(16,185,129,0.14)' }]}>
-                <Percent size={16} color="#10B981" />
-              </View>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{approvalRate}</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Approval Rate</Text>
-              <Text style={[styles.statDelta, { color: colors.mutedForeground }]}>{liveCount} live in auction</Text>
-            </View>
-
-            <View style={[styles.statCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
-              <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(59,130,246,0.14)' }]}>
-                <Users size={16} color="#3B82F6" />
-              </View>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{dealers.length}</Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Active Dealers</Text>
-              <Text style={[styles.statDelta, { color: colors.mutedForeground }]}>Enrolled dealer network</Text>
-            </View>
-          </View>
-
           {/* Export Buttons */}
           <View style={styles.exportStack}>
             <TouchableOpacity style={styles.exportPrimaryBtn} onPress={exportInspectionsCSV} activeOpacity={0.85}>

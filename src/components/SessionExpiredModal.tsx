@@ -24,6 +24,11 @@ const ROLE_COPY: Record<string, { title: string; message: string }> = {
     message:
       'Your vehicle evaluation session has expired. Please log in again to save drafts and submit reports.',
   },
+  freelancer: {
+    title: 'Freelancer Session Expired',
+    message:
+      'Your freelance vehicle evaluation session has expired. Please log in again to save drafts and submit reports.',
+  },
 };
 
 export const SessionExpiredModal: React.FC<SessionExpiredModalProps> = ({ onLoginAgain }) => {

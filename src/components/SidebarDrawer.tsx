@@ -35,6 +35,7 @@ import {
   Users,
   TrendingUp,
   Bell,
+  Upload,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { authService } from '../services/authService';
@@ -132,6 +133,11 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       setTimeout(() => {
         navigation.navigate('InspectorProfile');
       }, 150);
+    } else if (role === 'freelancer' || currentRouteName.startsWith('Freelancer')) {
+      onClose();
+      setTimeout(() => {
+        navigation.navigate('FreelancerProfile');
+      }, 150);
     } else if (role === 'dealer' || currentRouteName.startsWith('Dealer')) {
       onClose();
       setTimeout(() => {
@@ -145,7 +151,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   const isDashboardRoute =
     currentRouteName.startsWith('Admin') ||
     currentRouteName.startsWith('Dealer') ||
-    currentRouteName.startsWith('Inspector');
+    currentRouteName.startsWith('Inspector') ||
+    currentRouteName.startsWith('Freelancer');
 
   const menuSections = [
     {
@@ -159,6 +166,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 { id: 'AdminLiveBidding', label: 'Live Monitor', subtitle: 'Active auction status log', icon: Bell },
                 { id: 'AdminDealers', label: 'Dealers', subtitle: 'Verified dealer network', icon: Store },
                 { id: 'AdminInspectors', label: 'Inspectors', subtitle: 'Active field inspectors', icon: Users },
+                { id: 'AdminFreelancers', label: 'Freelancers', subtitle: 'Freelance inspectors', icon: Users },
                 { id: 'AdminAnalytics', label: 'Analytics', subtitle: 'Monthly volumes & pipeline', icon: TrendingUp },
               ]
             : currentRouteName.startsWith('Inspector')
@@ -168,11 +176,19 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 { id: 'InspectorAddVehicle', label: 'Add Vehicle', subtitle: 'Create new inspection report', icon: Plus },
                 { id: 'InspectorProfile', label: 'Profile', subtitle: 'Personal profile settings', icon: Users },
               ]
+            : currentRouteName.startsWith('Freelancer')
+            ? [
+                { id: 'FreelancerDashboard', label: 'Dashboard', subtitle: 'Evaluation telemetry logs', icon: LayoutDashboard },
+                { id: 'FreelancerAddVehicle', label: 'Add Vehicle', subtitle: 'Create new inspection report', icon: Upload },
+                { id: 'FreelancerVehicles', label: 'My Vehicles', subtitle: 'All inspection reports', icon: Car },
+                { id: 'FreelancerProfile', label: 'Profile', subtitle: 'Personal profile settings', icon: Users },
+              ]
             : [
                 { id: 'DealerDashboard', label: 'Dashboard', subtitle: 'Live bidding workspace', icon: LayoutDashboard },
                 { id: 'DealerMarketplace', label: 'Marketplace', subtitle: 'Browse certified vehicles', icon: Car },
                 { id: 'DealerBids', label: 'My Bids', subtitle: 'Track all placed bids', icon: Gavel },
                 { id: 'DealerFavourites', label: 'Favourites', subtitle: 'Saved favourite vehicles', icon: Heart },
+                { id: 'DealerFreelancerVehicles', label: 'Freelancer Vehicles', subtitle: 'Evaluated by freelancers', icon: Car },
                 { id: 'DealerProfile', label: 'Profile', subtitle: 'Dealership profile settings', icon: Users },
               ])
         : [
@@ -250,7 +266,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                   <View style={{ flex: 1 }}>
                     <View style={styles.titleBadgeRow}>
                       <Text style={[styles.brandTitle, { color: colors.foreground }]} numberOfLines={1}>
-                        {user.role === 'admin' ? 'ADMIN' : user.role === 'inspector' ? 'INSPECTOR' : 'DEALER'}
+                        {user.role === 'admin' ? 'ADMIN' : user.role === 'inspector' ? 'INSPECTOR' : user.role === 'freelancer' ? 'FREELANCER' : 'DEALER'}
                       </Text>
                       {user.role !== 'admin' && (
                         <View

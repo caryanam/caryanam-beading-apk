@@ -31,6 +31,7 @@ import {
   Copy,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
+import { freelancerService } from '../services/freelancerService';
 import { AdminNotificationsModal } from '../components/AdminNotificationsModal';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -63,6 +64,7 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inspector' | 'freelancer'>('inspector');
   const [inspections, setInspections] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [, setNow] = useState(Date.now());
@@ -88,15 +90,51 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
 
   const fetchAuctions = async (showMsg = false) => {
     if (showMsg) setRefreshing(true);
+    setLoading(true);
     try {
-      const res = await adminService.getSubmittedInspections();
-      if (res.success && res.data) {
-        const approved = res.data.filter((ins: any) => ins.status === 'APPROVED');
-        setInspections(approved);
-        if (showMsg) showToast({ message: 'Auctions list updated', type: 'success' });
+      if (activeTab === 'inspector') {
+        const res = await adminService.getSubmittedInspections();
+        if (res.success && res.data) {
+          const approvedOnly = res.data.filter((ins: any) => {
+            const s = String(ins.status || ins.vehicleStatus || '').toUpperCase();
+            return s === 'APPROVED' || s === 'READY_FOR_AUCTION' || s === 'LIVE' || s === 'SOLD' || s === 'SOLD OUT' || s === 'COMPLETED';
+          });
+          setInspections(approvedOnly);
+          if (showMsg) showToast({ message: 'Inspector auctions list updated', type: 'success' });
+        } else {
+          setInspections([]);
+        }
+      } else {
+        const res = await freelancerService.getMyInspections();
+        if (res.success && res.data) {
+          const processed = res.data
+            .filter((ins: any) => {
+              const s = String(ins.status || ins.vehicleStatus || '').toUpperCase();
+              return s === 'APPROVED' || s === 'READY_FOR_AUCTION' || s === 'LIVE' || s === 'SOLD' || s === 'SOLD OUT' || s === 'COMPLETED';
+            })
+            .map((item: any) => ({
+              ...item,
+              inspectionId: item.inspectionId || item.id,
+              vehicleNumber: item.vehicleNumber || item.registrationNumber || item.regNo || `INS-${item.inspectionId || item.id}`,
+              brand: item.brand || '',
+              model: item.model || '',
+              variant: item.variant || '',
+              ownerName: item.ownerName || '1st Owner',
+              suggestedPrice: item.suggestedPrice || item.price || 0,
+              submittedAt: item.submittedAt || item.createdAt || null,
+              inspectorName: item.freelancerName || item.inspectorName || item.inspector?.fullName || (item.inspectorId ? `Freelancer #${item.inspectorId}` : 'N/A'),
+              status: item.status || item.vehicleStatus || 'APPROVED',
+              vehicleStatus: item.vehicleStatus || item.status || 'READY_FOR_AUCTION',
+            }));
+          setInspections(processed);
+          if (showMsg) showToast({ message: 'Freelancer auctions list updated', type: 'success' });
+        } else {
+          setInspections([]);
+        }
       }
     } catch {
       // silent fetch error log
+      setInspections([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -106,7 +144,7 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
   useEffect(() => {
     fetchAuctions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTab]);
   const onRefresh = () => fetchAuctions(true);
 
   // ── Actions ────────────────────────────────────────────
@@ -120,10 +158,11 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
   const handleGoLive = async (id: number) => {
     setGoLiveLoading(id);
     try {
-      showToast({ message: 'Launching live auction room...', type: 'info' });
-      const res = await adminService.startLiveAuction(id);
+      const duration = activeTab === 'freelancer' ? 15 : 10;
+      showToast({ message: `Launching live ${duration}-minute auction room...`, type: 'info' });
+      const res = await adminService.startLiveAuction(id, duration);
       if (res.success) {
-        showToast({ message: 'Auction is now LIVE!', type: 'success' });
+        showToast({ message: `${duration}-Minute Live Auction Started for Vehicle #${id}!`, type: 'success' });
         fetchAuctions();
       } else {
         showToast({ message: 'Failed to start auction.', type: 'error' });
@@ -237,6 +276,22 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
             <RefreshCw size={18} color={colors.foreground} />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Tab Switcher */}
+      <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderRadius: 20, marginHorizontal: 16, marginTop: 12, marginBottom: 8, padding: 4 }}>
+        <TouchableOpacity 
+          style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'inspector' ? '#FFC700' : 'transparent', alignItems: 'center' }}
+          onPress={() => setActiveTab('inspector')}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'inspector' ? '#0D0E12' : colors.mutedForeground }}>Inspectors</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'freelancer' ? '#FFC700' : 'transparent', alignItems: 'center' }}
+          onPress={() => setActiveTab('freelancer')}
+        >
+          <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'freelancer' ? '#0D0E12' : colors.mutedForeground }}>Freelancers</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}

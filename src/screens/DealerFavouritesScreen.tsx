@@ -66,6 +66,7 @@ const mapFavourite = (item: any): any => {
     auction,
     image: item.vehicleImage || 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=400&q=80',
     endsAt: item.auctionEndTime || Date.now() + 86400000,
+    raw: item,
   };
 };
 
@@ -147,7 +148,20 @@ export const DealerFavouritesScreen: React.FC<DealerFavouritesScreenProps> = ({ 
       >
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('DealerVehicleDetail', { vehicleId: v.inspectionId || v.id })}
+          onPress={() => {
+            const isFreelancerVehicle =
+              v.isFreelancer ||
+              v.sourceType === 'FREELANCER' ||
+              v.inspector?.toLowerCase().includes('freelancer') ||
+              !!v.freelancerName ||
+              !!(v as any).raw?.freelancerName;
+            
+            if (isFreelancerVehicle) {
+              navigation.navigate('DealerFreelancerVehicleDetail', { vehicleId: v.inspectionId || v.id });
+            } else {
+              navigation.navigate('DealerVehicleDetail', { vehicleId: v.inspectionId || v.id });
+            }
+          }}
         >
           <View style={styles.imageWrap}>
             <Image source={{ uri: v.image }} style={styles.image} resizeMode="cover" />

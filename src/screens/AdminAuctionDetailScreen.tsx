@@ -282,11 +282,9 @@ export const AdminAuctionDetailScreen: React.FC<AdminAuctionDetailScreenProps> =
     vehicleStatus === 'COMPLETED';
 
   const topBidder = v.currentHighestBidder
-    ? v.currentHighestBidder.dealershipName ||
-      v.currentHighestBidder.ownerName ||
-      v.currentHighestBidder
-    : bidHistory[0]?.dealer || 'No Bids';
-  const topBid = v.currentHighestBid || bidHistory[0]?.amount || 0;
+    ? (typeof v.currentHighestBidder === 'string' ? v.currentHighestBidder : (v.currentHighestBidder.dealershipName || v.currentHighestBidder.ownerName || v.currentHighestBidder))
+    : (bidHistory.length > 0 ? (bidHistory[0].dealer || bidHistory[0].dealerName || bidHistory[0].dealershipName || bidHistory[0].bidderName || `Dealer #${bidHistory[0].userId}`) : 'No Bids');
+  const topBid = v.currentHighestBid || v.highestBidAmount || (bidHistory.length > 0 ? (bidHistory[0].amount || bidHistory[0].bidAmount || 0) : 0);
   const basePrice = v.suggestedPrice || 0;
   const totalBids = v.totalBids || bidHistory.length || 0;
 
@@ -442,7 +440,7 @@ export const AdminAuctionDetailScreen: React.FC<AdminAuctionDetailScreenProps> =
                       {v.brand} {v.model} {v.variant}
                     </Text>
                     <Text style={[styles.negMeta, { color: colors.mutedForeground }]}>
-                      {v.vehicleNumber} · Winner: <Text style={[styles.negWinner, { color: colors.foreground }]}>{topBidder}</Text> ({inr(topBid)})
+                      {v.vehicleNumber} · Winner: <Text style={[styles.negWinner, { color: colors.foreground }]}>{topBidder}</Text>
                     </Text>
                   </View>
                   {!isSold && (
@@ -540,25 +538,29 @@ export const AdminAuctionDetailScreen: React.FC<AdminAuctionDetailScreenProps> =
 
           {/* 4 Summary Stat Cards */}
           <View style={styles.metricsGrid}>
-            <View style={[styles.metricCard, { backgroundColor: 'rgba(255,199,0,0.07)', borderColor: 'rgba(255,199,0,0.35)' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={styles.metricLabelGold}>{isSold ? 'Auction Winner' : 'Highest Active Bidder'}</Text>
-                <Crown size={16} color="#FFC700" />
-              </View>
-              <Text style={[styles.metricValue, { color: colors.foreground }]} numberOfLines={1}>{topBidder}</Text>
-              <Text style={[styles.metricSub, { color: colors.mutedForeground }]}>
-                {isSold ? 'Confirmed Winner' : 'Bidding Leader'}
-              </Text>
-            </View>
+            {(isLive || isSold) && (
+              <>
+                <View style={[styles.metricCard, { backgroundColor: 'rgba(255,199,0,0.07)', borderColor: 'rgba(255,199,0,0.35)' }]}>
+                  <View style={styles.metricHeader}>
+                    <Text style={styles.metricLabelGold}>{isSold ? 'Auction Winner' : 'Highest Active Bidder'}</Text>
+                    <Crown size={16} color="#FFC700" />
+                  </View>
+                  <Text style={[styles.metricValue, { color: colors.foreground }]} numberOfLines={1}>{topBidder}</Text>
+                  <Text style={[styles.metricSub, { color: colors.mutedForeground }]}>
+                    {isSold ? 'Confirmed Winner' : 'Bidding Leader'}
+                  </Text>
+                </View>
 
-            <View style={[styles.metricCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
-              <View style={styles.metricHeader}>
-                <Text style={[styles.metricLabel, { color: colors.mutedForeground }]}>Highest Bid</Text>
-                <Gavel size={16} color="#10B981" />
-              </View>
-              <Text style={styles.metricValueGreen}>{topBid > 0 ? inr(topBid) : 'No Bids Yet'}</Text>
-              <Text style={[styles.metricSub, { color: colors.mutedForeground }]}>Current Best Offer</Text>
-            </View>
+                <View style={[styles.metricCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
+                  <View style={styles.metricHeader}>
+                    <Text style={[styles.metricLabel, { color: colors.mutedForeground }]}>Highest Bid</Text>
+                    <Gavel size={16} color="#10B981" />
+                  </View>
+                  <Text style={styles.metricValueGreen}>{topBid > 0 ? inr(topBid) : 'No Bids Yet'}</Text>
+                  <Text style={[styles.metricSub, { color: colors.mutedForeground }]}>Current Best Offer</Text>
+                </View>
+              </>
+            )}
 
             <View style={[styles.metricCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)' }]}>
               <View style={styles.metricHeader}>
@@ -670,10 +672,12 @@ export const AdminAuctionDetailScreen: React.FC<AdminAuctionDetailScreenProps> =
                 <Text style={styles.controlRowLabel}>Reserve Base:</Text>
                 <Text style={styles.controlRowValueGold}>{inr(basePrice)}</Text>
               </View>
-              <View style={styles.controlRow}>
-                <Text style={styles.controlRowLabel}>Leading Bid:</Text>
-                <Text style={styles.controlRowValueGreen}>{topBid > 0 ? inr(topBid) : 'No bids'}</Text>
-              </View>
+              {(isLive || isSold) && (
+                <View style={styles.controlRow}>
+                  <Text style={styles.controlRowLabel}>Leading Bid:</Text>
+                  <Text style={styles.controlRowValueGreen}>{topBid > 0 ? inr(topBid) : 'No bids'}</Text>
+                </View>
+              )}
             </View>
 
             {isLive ? (
