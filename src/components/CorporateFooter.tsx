@@ -42,7 +42,7 @@ export const CorporateFooter: React.FC = () => {
           </View>
           <View style={styles.contactItemRow}>
             <MapPin size={14} color="#FFC700" />
-            <Text style={[styles.footerContactText, { color: '#E5E7EB', marginLeft: 6 }]}>Kharadi, Pune, 411014</Text>
+            <Text style={[styles.footerContactText, { color: '#E5E7EB', marginLeft: 6 }]}>Pune, Maharashtra 411014</Text>
           </View>
         </View>
       </View>
@@ -55,6 +55,10 @@ export const CorporateFooter: React.FC = () => {
           <Text style={styles.footerLegalDivider}>|</Text>
           <TouchableOpacity onPress={() => navigation.navigate('TermsConditions')}>
             <Text style={styles.footerLegalLink}>Terms & Conditions</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerLegalDivider}>|</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('DeleteAccount')}>
+            <Text style={styles.footerLegalLink}>Delete Account</Text>
           </TouchableOpacity>
         </View>
         <Text style={[styles.copyrightText, { color: '#9CA3AF', marginTop: 4 }]}>Developed by Caryanamindia Pvt Ltd</Text>

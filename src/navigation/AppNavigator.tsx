@@ -7,6 +7,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { AboutScreen } from '../screens/AboutScreen';
 import { WhyChooseScreen } from '../screens/WhyChooseScreen';
 import { ContactScreen } from '../screens/ContactScreen';
+import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
@@ -175,6 +176,11 @@ const NavigationContent = () => {
             name="Contact"
             component={ContactScreen}
             options={{ title: 'Contact Support' }}
+          />
+          <Stack.Screen
+            name="DeleteAccount"
+            component={DeleteAccountScreen}
+            options={{ title: 'Delete Account' }}
           />
           <Stack.Screen
             name="Login"

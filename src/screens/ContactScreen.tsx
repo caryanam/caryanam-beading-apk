@@ -46,7 +46,7 @@ export const ContactScreen: React.FC = () => {
             <View style={styles.infoTextCol}>
               <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>OFFICE ADDRESS</Text>
               <Text style={[styles.infoVal, { color: colors.foreground }]}>
-                Kharadi, Pune, 411014
+                Pune, Maharashtra 411014
               </Text>
             </View>
           </View>

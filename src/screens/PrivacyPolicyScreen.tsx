@@ -1,34 +1,11 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Shield } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Shield, FileText, UserCheck, Share2, Lock, Database, Layers, RefreshCw, Phone, Mail, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { CorporateFooter } from '../components/CorporateFooter';
 
-export const PrivacyPolicyScreen: React.FC = () => {
+export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { colors } = useTheme();
-
-  const sections = [
-    {
-      title: '1. Information We Collect',
-      content: 'We collect data to provide verified bidding services. This includes company incorporation files, dealer licenses, mobile numbers, and device authentication logs. We also store telemetry regarding your live bidding actions, WebSocket connection states, and auction room interaction logs to ensure security and audit compliance.',
-    },
-    {
-      title: '2. How We Use Information',
-      content: 'Collected data is strictly utilized to authenticate B2B dealers, manage active live auctions, facilitate direct buyer-seller vehicle inspections, and compile accurate bidding logs. We do not sell or lease your commercial transactions data to third-party marketing brokers.',
-    },
-    {
-      title: '3. Data Security & WebSocket Security',
-      content: 'All real-time bidding transmissions and data streams are encrypted using end-to-end Transport Layer Security (TLS). Bidding records and inspector compliance checks are stored on access-restricted cloud databases with continuous monitoring and routine security audits.',
-    },
-    {
-      title: '4. Local Storage & Preferences',
-      content: 'We utilize secure local storage and caching (such as AsyncStorage) on your mobile device to store preferences (such as light/dark mode choices) and secure session tokens to keep you logged in. No sensitive bidding details are stored permanently in plain text on the device.',
-    },
-    {
-      title: '5. Data Erasure & Compliance',
-      content: 'Verified B2B partners may request account closure and deletion of registration files by writing to support@caryanam.com. Please note that certain bidding transaction logs must be retained for legal, taxation, and dispute resolution purposes.',
-    },
-  ];
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
@@ -37,29 +14,90 @@ export const PrivacyPolicyScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.badge}>
             <Shield size={14} color="#FFC700" style={{ marginRight: 6 }} />
-            <Text style={styles.badgeText}>Security & Privacy Commitment</Text>
+            <Text style={styles.badgeText}>Legal &amp; Compliance</Text>
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>Privacy Policy</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Last Updated: August 2026
+            Last Updated: 24 August 2026
           </Text>
         </View>
 
         {/* Narrative Card */}
         <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.narrativeText, { color: colors.foreground }]}>
-            At Caryanam, we value your trust and are committed to protecting the integrity and confidentiality of your B2B dealer transactions and registration credentials.
+            Caryanam India Pvt. Ltd. ("Caryanam", "we", "our") operates the Caryanam Bidding App. This Privacy Policy explains how we collect and use information when you use our App.
           </Text>
         </View>
 
         {/* Sections */}
         <View style={styles.sectionsContainer}>
-          {sections.map((section, idx) => (
-            <View key={idx} style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{section.title}</Text>
-              <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>{section.content}</Text>
+          
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>1. Information We Collect</Text>
+            <Text style={[styles.sectionContent, { color: colors.foreground, marginBottom: 8, fontWeight: '700' }]}>We may collect:</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Name, mobile number and email address</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Company/dealer registration details</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Vehicle details, photos and inspection information</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Bidding and auction activity</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Device, network and technical information</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Login, security and usage information</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>2. How We Use Information</Text>
+            <Text style={[styles.sectionContent, { color: colors.foreground, marginBottom: 8, fontWeight: '700' }]}>We use this information to:</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Create and manage user accounts</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Verify dealers and businesses</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Provide vehicle auction and bidding services</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Process and record bids</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Send OTPs, notifications and service updates</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Prevent fraud and unauthorized activity</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Maintain security and audit records</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Provide customer support</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>• Comply with applicable laws</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>3. Data Sharing</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground, marginBottom: 12 }]}>We may share information with authorized service providers, business partners, technology infrastructure providers, legal authorities, or other parties where required to provide our services or comply with applicable law.</Text>
+            <Text style={[styles.sectionContent, { color: colors.foreground, fontWeight: '700' }]}>We do not sell personal information as a commercial product.</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>4. Data Security</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>We use reasonable technical and organizational measures to protect user information. However, no electronic system can be guaranteed to be completely secure.</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>5. Data Retention &amp; Deletion</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground, marginBottom: 12 }]}>We retain information as necessary to provide our services, maintain business records, prevent fraud, resolve disputes and comply with legal requirements.</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <Text style={[styles.sectionContent, { color: colors.foreground, flex: 1, minWidth: 200, fontWeight: '700' }]}>Users may request account/data deletion by contacting us.</Text>
+              <TouchableOpacity 
+                style={styles.deleteBtn}
+                onPress={() => navigation.navigate('DeleteAccount')}
+              >
+                <Trash2 size={14} color="#FFF" />
+                <Text style={styles.deleteBtnText}>Delete My Account</Text>
+              </TouchableOpacity>
             </View>
-          ))}
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>6. Third-Party Services</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>The App may use third-party services for hosting, authentication, notifications, analytics, communication and other operational purposes.</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>7. Changes to This Policy</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>We may update this Privacy Policy from time to time. Updated policies will be made available through the App or our website.</Text>
+          </View>
+
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>8. Contact Us</Text>
+            <Text style={[styles.sectionContent, { color: colors.mutedForeground }]}>Mobile Helpline: +91 7755994123{'\n'}Support Email: support@caryanamlive.com</Text>
+          </View>
+
         </View>
       </View>
       <CorporateFooter />
@@ -68,17 +106,9 @@ export const PrivacyPolicyScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 24,
-  },
-  contentBody: {
-    paddingHorizontal: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  container: { flex: 1, paddingTop: 24 },
+  contentBody: { paddingHorizontal: 20 },
+  header: { alignItems: 'center', marginBottom: 24 },
   badge: {
     backgroundColor: 'rgba(255, 199, 0, 0.15)',
     borderColor: 'rgba(255, 199, 0, 0.4)',
@@ -90,52 +120,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  badgeText: {
-    color: '#FFC700',
+  badgeText: { color: '#FFC700', fontSize: 12, fontWeight: '800' },
+  title: { fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 6 },
+  subtitle: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  mainCard: { borderWidth: 1, borderRadius: 18, padding: 18, marginBottom: 20 },
+  narrativeText: { fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  sectionsContainer: { gap: 16, marginBottom: 40 },
+  sectionCard: { borderWidth: 1, borderRadius: 18, padding: 18 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', marginBottom: 12 },
+  sectionContent: { fontSize: 13, lineHeight: 22, fontWeight: '500' },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6
+  },
+  deleteBtnText: {
+    color: '#FFF',
     fontSize: 12,
-    fontWeight: '800',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  mainCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 20,
-  },
-  narrativeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  sectionsContainer: {
-    gap: 16,
-    marginBottom: 40,
-  },
-  sectionCard: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 18,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-  sectionContent: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
+    fontWeight: '800'
+  }
 });

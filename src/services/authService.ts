@@ -23,6 +23,18 @@ export interface UserSession {
 
 export const authService = {
   // Login user (Dealer / Inspector / Admin / Freelancer)
+  async deleteAccount(emailOrMobile: string, password: string): Promise<any> {
+    try {
+      const response = await apiClient.post('/api/auth/delete-account', { emailOrMobile, password });
+      return response.data;
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        throw new Error(error.response.data.message || 'Failed to delete account');
+      }
+      throw new Error('Network error or server unavailable');
+    }
+  },
+
   async login(email: string, password: string): Promise<UserSession> {
     try {
       const response = await publicClient.post('/api/auth/login', {
