@@ -21,6 +21,7 @@ import { AdminAuctionDetailScreen } from '../screens/AdminAuctionDetailScreen';
 import { AdminDealersScreen } from '../screens/AdminDealersScreen';
 import { AdminInspectorsScreen } from '../screens/AdminInspectorsScreen';
 import { AdminAnalyticsScreen } from '../screens/AdminAnalyticsScreen';
+import { AdminEnquiriesScreen } from '../screens/AdminEnquiriesScreen';
 import { DealerDashboardScreen } from '../screens/DealerDashboardScreen';
 import { DealerMarketplaceScreen } from '../screens/DealerMarketplaceScreen';
 import { DealerBidsScreen } from '../screens/DealerBidsScreen';
@@ -255,6 +256,12 @@ const NavigationContent = () => {
             options={{ title: 'Analytics', headerShown: false }}
           >
             {props => <AdminAnalyticsScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
+          <Stack.Screen
+            name="AdminEnquiries"
+            options={{ title: 'Enquiries', headerShown: false }}
+          >
+            {props => <AdminEnquiriesScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
           </Stack.Screen>
           <Stack.Screen
             name="DealerDashboard"

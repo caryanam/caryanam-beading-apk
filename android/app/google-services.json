@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "941807068700",
+    "project_id": "caryanambiddingnotification",
+    "storage_bucket": "caryanambiddingnotification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941807068700:android:0acf9a2f3ea2b5a05b61d9",
+        "android_client_info": {
+          "package_name": "com.caryanambiddingapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBO0qrxe5EORVoYR4J3iotFCMclraiuHK4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

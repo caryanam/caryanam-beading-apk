@@ -36,7 +36,7 @@ import {
   Activity,
   RadioTower,
   Flame,
-  ShieldCheck, Download,
+  ShieldCheck, Download, MessageSquare,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
 import { freelancerService } from '../services/freelancerService';
@@ -438,6 +438,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
     { label: 'Manage Live Bidding', desc: `${stats.running} active auction rooms`, color: '#10B981', bg: 'rgba(16,185,129,0.12)', icon: Gavel, action: () => navigation.navigate('AdminLiveBidding') },
     { label: 'Review Inventory', desc: `${stats.pending} pending approvals`, color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: ReceiptText, action: () => navigation.navigate('AdminVehicles') },
     { label: 'Dealers Network', desc: `${stats.dealers} onboarded buyers`, color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', icon: Store, action: () => navigation.navigate('AdminDealers') },
+    { label: 'User Enquiries', desc: 'Contact requests & feedback', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', icon: MessageSquare, action: () => navigation.navigate('AdminEnquiries') },
   ];
 
   const statCards = [

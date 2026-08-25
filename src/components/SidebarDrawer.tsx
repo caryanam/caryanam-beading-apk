@@ -34,6 +34,7 @@ import {
   Heart,
   Users,
   TrendingUp,
+  MessageSquare,
   Bell,
   Upload,
 } from 'lucide-react-native';
@@ -168,6 +169,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 { id: 'AdminInspectors', label: 'Inspectors', subtitle: 'Active field inspectors', icon: Users },
                 { id: 'AdminFreelancers', label: 'Freelancers', subtitle: 'Freelance inspectors', icon: Users },
                 { id: 'AdminAnalytics', label: 'Analytics', subtitle: 'Monthly volumes & pipeline', icon: TrendingUp },
+                  { id: 'AdminEnquiries', label: 'Enquiries', subtitle: 'User feedback & contact', icon: MessageSquare },
               ]
             : currentRouteName.startsWith('Inspector')
             ? [
