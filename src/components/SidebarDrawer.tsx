@@ -128,38 +128,32 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   };
 
   const handleHeaderClick = () => {
-    const role = user?.role ? String(user.role).toLowerCase() : '';
-    if (role === 'inspector' || currentRouteName.startsWith('Inspector')) {
-      onClose();
-      setTimeout(() => {
+    if (!user) return;
+    const role = (user.role || '').toLowerCase();
+    onClose();
+    setTimeout(() => {
+      if (role === 'inspector') {
         navigation.navigate('InspectorProfile');
-      }, 150);
-    } else if (role === 'freelancer' || currentRouteName.startsWith('Freelancer')) {
-      onClose();
-      setTimeout(() => {
+      } else if (role === 'freelancer') {
         navigation.navigate('FreelancerProfile');
-      }, 150);
-    } else if (role === 'dealer' || currentRouteName.startsWith('Dealer')) {
-      onClose();
-      setTimeout(() => {
+      } else if (role === 'admin') {
+        navigation.navigate('AdminDashboard');
+      } else {
         navigation.navigate('DealerProfile');
-      }, 150);
-    }
+      }
+    }, 150);
   };
 
   if (!visible) return null;
 
-  const isDashboardRoute =
-    currentRouteName.startsWith('Admin') ||
-    currentRouteName.startsWith('Dealer') ||
-    currentRouteName.startsWith('Inspector') ||
-    currentRouteName.startsWith('Freelancer');
+  const isUserLoggedIn = !!user;
+  const userRole = (user?.role || '').toLowerCase();
 
   const menuSections = [
     {
-      title: isDashboardRoute ? 'WORKSPACE MODULES' : 'DISCOVER LOBBY',
-      items: isDashboardRoute
-        ? (currentRouteName.startsWith('Admin')
+      title: isUserLoggedIn ? 'WORKSPACE MODULES' : 'DISCOVER LOBBY',
+      items: isUserLoggedIn
+        ? (userRole === 'admin'
             ? [
                 { id: 'AdminDashboard', label: 'Dashboard', subtitle: 'Enterprise telemetry', icon: LayoutDashboard },
                 { id: 'AdminVehicles', label: 'Vehicles', subtitle: 'Manage inspection reports', icon: Car },
@@ -169,16 +163,16 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 { id: 'AdminInspectors', label: 'Inspectors', subtitle: 'Active field inspectors', icon: Users },
                 { id: 'AdminFreelancers', label: 'Freelancers', subtitle: 'Freelance inspectors', icon: Users },
                 { id: 'AdminAnalytics', label: 'Analytics', subtitle: 'Monthly volumes & pipeline', icon: TrendingUp },
-                  { id: 'AdminEnquiries', label: 'Enquiries', subtitle: 'User feedback & contact', icon: MessageSquare },
+                { id: 'AdminEnquiries', label: 'Enquiries', subtitle: 'User feedback & contact', icon: MessageSquare },
               ]
-            : currentRouteName.startsWith('Inspector')
+            : userRole === 'inspector'
             ? [
                 { id: 'InspectorDashboard', label: 'Inspector Console', subtitle: 'Evaluation telemetry logs', icon: LayoutDashboard },
                 { id: 'InspectorVehicles', label: 'My Vehicles', subtitle: 'All inspection reports', icon: Car },
                 { id: 'InspectorAddVehicle', label: 'Add Vehicle', subtitle: 'Create new inspection report', icon: Plus },
                 { id: 'InspectorProfile', label: 'Profile', subtitle: 'Personal profile settings', icon: Users },
               ]
-            : currentRouteName.startsWith('Freelancer')
+            : userRole === 'freelancer'
             ? [
                 { id: 'FreelancerDashboard', label: 'Dashboard', subtitle: 'Evaluation telemetry logs', icon: LayoutDashboard },
                 { id: 'FreelancerAddVehicle', label: 'Add Vehicle', subtitle: 'Create new inspection report', icon: Upload },
@@ -200,15 +194,11 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           ],
     },
     {
-      title: isDashboardRoute ? 'SESSION CONTROL' : 'PARTNER NETWORK',
-      items: isDashboardRoute
-        ? (currentRouteName.startsWith('Admin')
-            ? [
-                { id: 'Logout', label: 'Sign Out', subtitle: 'Securely end active session', icon: LogOut },
-              ]
-            : [
-                { id: 'Logout', label: 'Sign Out', subtitle: 'Securely end active session', icon: LogOut },
-              ])
+      title: isUserLoggedIn ? 'SESSION CONTROL' : 'PARTNER NETWORK',
+      items: isUserLoggedIn
+        ? [
+            { id: 'Logout', label: 'Sign Out', subtitle: 'Securely end active session', icon: LogOut },
+          ]
         : [
             { id: 'Contact', label: 'Contact Support', subtitle: '24/7 VIP dealer assistance', icon: Headphones },
             { id: 'Login', label: 'Sign In', subtitle: 'Access bidding workspace', icon: LogIn },
@@ -264,13 +254,13 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 <View style={[styles.logoContainer, { borderColor: colors.primary }]}>
                   <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="cover" />
                 </View>
-                {isDashboardRoute && user ? (
+                {isUserLoggedIn ? (
                   <View style={{ flex: 1 }}>
                     <View style={styles.titleBadgeRow}>
                       <Text style={[styles.brandTitle, { color: colors.foreground }]} numberOfLines={1}>
-                        {user.role === 'admin' ? 'ADMIN' : user.role === 'inspector' ? 'INSPECTOR' : user.role === 'freelancer' ? 'FREELANCER' : 'DEALER'}
+                        {userRole === 'admin' ? 'ADMIN' : userRole === 'inspector' ? 'INSPECTOR' : userRole === 'freelancer' ? 'FREELANCER' : 'DEALER'}
                       </Text>
-                      {user.role !== 'admin' && (
+                      {userRole !== 'admin' && (
                         <View
                           style={[
                             styles.badgePill,
@@ -281,7 +271,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                           ]}
                         >
                           <Text style={[styles.badgeText, { color: '#FFC700', fontSize: 9, fontWeight: '900' }]}>
-                            {user.role.toUpperCase()}
+                            {userRole.toUpperCase()}
                           </Text>
                         </View>
                       )}

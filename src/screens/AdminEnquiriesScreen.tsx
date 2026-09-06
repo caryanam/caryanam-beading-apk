@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,10 +17,9 @@ import { useToast } from '../context/ToastContext';
 import { API_BASE_URL, apiClient } from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { StackNavigationProp } from '@react-navigation/stack';
 
-type AdminNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type AdminNavigationProp = StackNavigationProp<any>;
 
 interface Enquiry {
   id: number;
@@ -51,10 +50,10 @@ export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOp
       if (data.success) {
         setEnquiries(data.data || []);
       } else {
-        showToast(data.message || 'Failed to load enquiries', 'error');
+        showToast({ message: data.message || 'Failed to load enquiries', type: 'error' });
       }
     } catch (error) {
-      showToast('Network error while loading enquiries', 'error');
+      showToast({ message: 'Network error while loading enquiries', type: 'error' });
     } finally {
       setLoading(false);
       setRefreshing(false);
