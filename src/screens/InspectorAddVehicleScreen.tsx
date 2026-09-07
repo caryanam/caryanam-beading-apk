@@ -27,6 +27,7 @@ import {
   ChevronLeft,
 } from 'lucide-react-native';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
+import RNVideo from 'react-native-video';
 import { inspectorService, resolveMediaUrl } from '../services/inspectorService';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -385,13 +386,18 @@ interface PhotoSlotProps {
 
 const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, uploading, onPick, onRemove, colors, isDark: _isDark }) => {
   const resolved = resolveMediaUrl(value);
+  const isVideoItem = !!isVideo;
+  const isMediaVideo = resolved ? isVideoUrl(resolved) : false;
+  // Photo slots strictly require an image and must NEVER display a video.
+  const hasValidMedia = !!resolved && (isVideoItem ? isMediaVideo : !isMediaVideo);
+
   return (
     <View style={styles.photoSlotWrap}>
       <View style={styles.photoSlotHeader}>
         <Text style={[styles.photoSlotLabel, { color: colors.foreground }]} numberOfLines={1}>
           {label}
         </Text>
-        {value ? (
+        {hasValidMedia ? (
           <View style={styles.capturedPill}>
             <CheckCircle2 size={10} color="#10B981" />
             <Text style={styles.capturedPillText}>Captured</Text>
@@ -404,13 +410,16 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, upl
         )}
       </View>
 
-      {resolved ? (
+      {hasValidMedia && resolved ? (
         <View style={[styles.photoPreview, { borderColor: colors.border }]}>
-          {isVideo || isVideoUrl(resolved) ? (
-            <View style={styles.videoPreview}>
-              <Video size={22} color="#FFC700" />
-              <Text style={styles.videoPreviewText}>Video captured</Text>
-            </View>
+          {isVideoItem ? (
+            <RNVideo
+              source={{ uri: resolved }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              controls={true}
+              paused={true}
+            />
           ) : (
             <Image source={{ uri: resolved }} style={styles.photoPreviewImg} resizeMode="cover" />
           )}
@@ -431,9 +440,9 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, upl
             <ActivityIndicator color="#FFC700" size="small" />
           ) : (
             <>
-              {isVideo ? <Video size={22} color="#FFC700" /> : <Camera size={22} color="#FFC700" />}
+              {isVideoItem ? <Video size={22} color="#FFC700" /> : <Camera size={22} color="#FFC700" />}
               <Text style={[styles.uploadBoxTitle, { color: colors.foreground }]}>
-                {isVideo ? 'Upload Video' : 'Upload Photo'}
+                {isVideoItem ? 'Upload Video' : 'Upload Photo'}
               </Text>
               <Text style={[styles.uploadBoxSub, { color: colors.mutedForeground }]}>Tap to browse</Text>
             </>
@@ -475,28 +484,61 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
   isDark,
 }) => {
   const resolved = resolveMediaUrl(image);
-  const isNa = value === 'NA' || value === 'N/A';
+  const valUpper = (value || '').toUpperCase().trim();
+  const isNa = valUpper === 'NA' || valUpper === 'N/A' || valUpper === 'NOT APPLICABLE';
+  const isVideoItem = !!isVideo;
+  const isMediaVideo = resolved ? isVideoUrl(resolved) : false;
+  // If status is NA, NEVER display image. Checklist photo items strictly require an image and must NEVER display a video.
+  const hasValidMedia = !isNa && !!resolved && (isVideoItem ? isMediaVideo : !isMediaVideo);
+
   return (
     <View style={[styles.checkItem, { borderColor: error ? '#F43F5E' : colors.border, backgroundColor: isDark ? '#171A24' : '#F2F4FA' }]}>
       <View style={styles.checkItemRow}>
-        <Text style={[styles.checkItemName, { color: colors.foreground }]} numberOfLines={1}>
+        <Text style={[styles.checkItemName, { color: colors.foreground, flex: 1 }]} numberOfLines={1}>
           {label}
         </Text>
-        <PickerFieldMini
-          value={value}
-          options={options}
-          onSelect={onValueChange}
-          colors={colors}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <PickerFieldMini
+            value={value}
+            options={options}
+            onSelect={onValueChange}
+            colors={colors}
+          />
+          {!hasValidMedia && !isNa && (
+            <TouchableOpacity
+              style={[
+                styles.checkItemUploadMini,
+                { borderColor: error ? '#F43F5E' : colors.border, backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }
+              ]}
+              onPress={onPick}
+              disabled={uploading}
+              activeOpacity={0.85}
+            >
+              {uploading ? (
+                <ActivityIndicator size="small" color="#FFC700" />
+              ) : (
+                isVideoItem ? <Video size={16} color="#FFC700" /> : <Camera size={16} color={colors.mutedForeground} />
+              )}
+            </TouchableOpacity>
+          )}
+          {isNa && (
+            <View style={styles.naTagMini}>
+              <Text style={styles.naTagMiniText}>N/A</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      {resolved ? (
-        <View style={[styles.checkItemPreview, { borderColor: colors.border }]}>
-          {isVideo || isVideoUrl(resolved) ? (
-            <View style={styles.videoPreview}>
-              <Video size={18} color="#FFC700" />
-              <Text style={styles.videoPreviewText}>Video captured</Text>
-            </View>
+      {hasValidMedia && resolved ? (
+        <View style={[styles.checkItemPreview, { borderColor: colors.border, marginTop: 10 }]}>
+          {isVideoItem ? (
+            <RNVideo
+              source={{ uri: resolved }}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+              controls={true}
+              paused={true}
+            />
           ) : (
             <Image source={{ uri: resolved }} style={styles.checkItemPreviewImg} resizeMode="cover" />
           )}
@@ -504,30 +546,8 @@ const ChecklistItem: React.FC<ChecklistItemProps> = ({
             <Trash2 size={13} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-      ) : (
-        !isNa && (
-          <TouchableOpacity
-            style={[styles.checkItemUpload, { borderColor: error ? '#F43F5E' : 'rgba(148,163,184,0.35)' }]}
-            onPress={onPick}
-            disabled={uploading}
-            activeOpacity={0.85}
-          >
-            {uploading ? (
-              <ActivityIndicator size="small" color="#FFC700" />
-            ) : (
-              <>
-                {isVideo ? <Video size={15} color="#FFC700" /> : <Camera size={15} color="#FFC700" />}
-                <Text style={[styles.checkItemUploadText, { color: colors.mutedForeground }]}>
-                  {isVideo ? 'Upload video' : 'Upload photo'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )
-      )}
-      {isNa && (
-        <Text style={styles.naTag}>N/A (No Photo)</Text>
-      )}
+      ) : null}
+      
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
@@ -982,19 +1002,20 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
             setComments(int.remarks || '');
           }
 
-          if (details.inspectionPhotos) {
-            const imageMap: Record<string, string> = {};
-            const checklistImageMap: Record<string, string> = {};
-            const allChecklistNames = [
-              ...exteriorPanels,
-              ...mechanicalItems.map((m) => m.name),
-              ...electricalItems,
-              'Battery Company',
-              'Full Battery Number',
-            ];
+          const imageMap: Record<string, string> = {};
+          const checklistImageMap: Record<string, string> = {};
+          const allChecklistNames = [
+            ...exteriorPanels,
+            ...mechanicalItems.map((m) => m.name),
+            ...electricalItems,
+            'Battery Company',
+            'Full Battery Number',
+          ];
 
+          if (details.inspectionPhotos && Array.isArray(details.inspectionPhotos)) {
             details.inspectionPhotos.forEach((img: any) => {
               if (!img.imageUrl) return;
+              if (isVideoUrl(img.imageUrl)) return;
               let slotKey = img.photoType ? photoTypeToSlotKeyMap[img.photoType] : undefined;
               if (!slotKey) {
                 const cat = img.imageCategory || img.displayName || '';
@@ -1009,10 +1030,24 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                 if (matchName) checklistImageMap[matchName] = img.imageUrl;
               }
             });
-
-            setPartImages((p) => ({ ...p, ...imageMap }));
-            setPanelImages((p) => ({ ...p, ...checklistImageMap }));
           }
+
+          // Process inspectionVideos & videoUrl strictly for 'Engine / Motor Noise' ONLY
+          const rawVideos = (details.inspectionVideos || []).concat(
+            details.videoUrl ? [{ videoUrl: details.videoUrl, displayName: 'Vehicle Walkaround' }] : []
+          );
+
+          if (rawVideos.length > 0) {
+            rawVideos.forEach((vid: any) => {
+              const vUrl = vid.videoUrl || vid.imageUrl || vid.url;
+              if (!vUrl) return;
+              // Map strictly and ONLY to Engine / Motor Noise
+              checklistImageMap['Engine / Motor Noise'] = vUrl;
+            });
+          }
+
+          setPartImages((p) => ({ ...p, ...imageMap }));
+          setPanelImages((p) => ({ ...p, ...checklistImageMap }));
         }
       } catch (err: any) {
         console.error('Failed to load inspection details', err);
@@ -1051,7 +1086,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
 
   const setExt = (panel: string, status: string) => {
     setExteriorState((p) => ({ ...p, [panel]: status }));
-    if (status === 'NA' || status === 'N/A') {
+    const s = (status || '').toUpperCase().trim();
+    if (s === 'NA' || s === 'N/A' || s === 'NOT APPLICABLE') {
       setPanelImages((prev) => {
         if (!prev[panel]) return prev;
         const copy = { ...prev };
@@ -1068,7 +1104,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
 
   const setMech = (item: string, val: string) => {
     setMechanicalState((p) => ({ ...p, [item]: val }));
-    if (val === 'NA' || val === 'N/A') {
+    const v = (val || '').toUpperCase().trim();
+    if (v === 'NA' || v === 'N/A' || v === 'NOT APPLICABLE') {
       setPanelImages((prev) => {
         if (!prev[item]) return prev;
         const copy = { ...prev };
@@ -1087,7 +1124,8 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
 
   const setElec = (item: string, val: string) => {
     setElectricalState((p) => ({ ...p, [item]: val }));
-    if (val === 'NA' || val === 'N/A') {
+    const v = (val || '').toUpperCase().trim();
+    if (v === 'NA' || v === 'N/A' || v === 'NOT APPLICABLE') {
       setPanelImages((prev) => {
         if (!prev[item]) return prev;
         const copy = { ...prev };
@@ -2452,6 +2490,25 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: 10,
     paddingVertical: 10,
+  },
+  checkItemUploadMini: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  naTagMini: {
+    backgroundColor: 'rgba(148,163,184,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  naTagMiniText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
   },
   checkItemUploadText: {
     fontSize: 9.5,

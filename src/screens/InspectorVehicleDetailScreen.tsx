@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -21,6 +21,7 @@ import {
   Star,
   AlertCircle,
   Camera,
+  Video as VideoIcon,
 } from 'lucide-react-native';
 import { inspectorService, resolveMediaUrl } from '../services/inspectorService';
 import Video from 'react-native-video';
@@ -67,31 +68,58 @@ const panelConditionColors: Record<string, { color: string; bg: string }> = {
   NA: { color: '#94A3B8', bg: 'rgba(148,163,184,0.12)' },
 };
 
-const mandatoryExteriorSlots = [
-  { type: 'FRONT_VIEW', label: 'FRONT SIDE IMAGE' },
-  { type: 'RIGHT_FRONT_VIEW', label: 'RIGHT SIDE IMAGE' },
-  { type: 'REAR_VIEW', label: 'REAR SIDE IMAGE' },
-  { type: 'LEFT_FRONT_VIEW', label: 'LEFT SIDE IMAGE' },
-  { type: 'ROOF_VIEW', label: 'ROOF TOP IMAGE' },
-];
+const slotToCategoryMap: Record<string, string> = {
+  frontSide: 'Front',
+  rightSide: 'Right',
+  rearSide: 'Rear',
+  leftSide: 'Left',
+  roofTop: 'Roof',
+  engineImg: 'Engine',
+  batteryImg: 'Battery',
+  rfTyreImg: 'Front Right',
+  rrTyreImg: 'Rear Right',
+  lrTyreImg: 'Rear Left',
+  lfTyreImg: 'Front Left',
+  spareWheelImg: 'Spare',
+  tyresGeneralImg: 'Tyres',
+  odometerImg: 'Odometer',
+  acImg: 'AC Control',
+};
 
-const engineSlots = [
-  { type: 'ENGINE_IMAGE', label: 'ENGINE ROOM PHOTO' },
-  { type: 'BATTERY_IMAGE', label: 'BATTERY BAY PHOTO' },
-];
+const photoTypeToSlotKeyMap: Record<string, string> = {
+  FRONT_VIEW: 'frontSide',
+  RIGHT_FRONT_VIEW: 'rightSide',
+  REAR_VIEW: 'rearSide',
+  LEFT_FRONT_VIEW: 'leftSide',
+  ROOF_VIEW: 'roofTop',
+  ENGINE_IMAGE: 'engineImg',
+  BATTERY_IMAGE: 'batteryImg',
+  FRONT_RIGHT_TYRE: 'rfTyreImg',
+  REAR_RIGHT_TYRE: 'rrTyreImg',
+  REAR_LEFT_TYRE: 'lrTyreImg',
+  FRONT_LEFT_TYRE: 'lfTyreImg',
+  SPARE_WHEEL: 'spareWheelImg',
+  TYRES_OVERVIEW: 'tyresGeneralImg',
+  ODOMETER_IMAGE: 'odometerImg',
+  AC_CONTROL_IMAGE: 'acImg',
+};
 
-const tyreSlots = [
-  { type: 'FRONT_RIGHT_TYRE', label: 'RIGHT SIDE FRONT TYRE IMG' },
-  { type: 'REAR_RIGHT_TYRE', label: 'RIGHT SIDE REAR TYRE IMG' },
-  { type: 'REAR_LEFT_TYRE', label: 'LEFT SIDE REAR TYRE IMG' },
-  { type: 'FRONT_LEFT_TYRE', label: 'LEFT SIDE FRONT TYRE IMG' },
-  { type: 'SPARE_WHEEL', label: 'SPARE WHEEL IMG' },
-  { type: 'TYRES_OVERVIEW', label: 'TYRES OVERVIEW IMAGE' },
-];
-
-const interiorSlots = [
-  { type: 'ODOMETER_IMAGE', label: 'ODOMETER READING PHOTO' },
-  { type: 'AC_CONTROL_IMAGE', label: 'AC CONTROL PANEL PHOTO' },
+const imageSlotsConfig = [
+  { key: 'frontSide', label: 'FRONT SIDE IMAGE', step: 1 },
+  { key: 'rightSide', label: 'RIGHT SIDE IMAGE', step: 1 },
+  { key: 'rearSide', label: 'REAR SIDE IMAGE', step: 1 },
+  { key: 'leftSide', label: 'LEFT SIDE IMAGE', step: 1 },
+  { key: 'roofTop', label: 'ROOF TOP IMAGE', step: 1 },
+  { key: 'engineImg', label: 'ENGINE / MOTOR IMG', step: 2 },
+  { key: 'batteryImg', label: 'BATTERY IMG', step: 2 },
+  { key: 'rfTyreImg', label: 'RIGHT SIDE FRONT TYRE IMG', step: 3 },
+  { key: 'rrTyreImg', label: 'RIGHT SIDE REAR TYRE IMG', step: 3 },
+  { key: 'lrTyreImg', label: 'LEFT SIDE REAR TYRE IMG', step: 3 },
+  { key: 'lfTyreImg', label: 'LEFT SIDE FRONT TYRE IMG', step: 3 },
+  { key: 'spareWheelImg', label: 'SPARE WHEEL IMG', step: 3 },
+  { key: 'tyresGeneralImg', label: 'TYRES OVERVIEW IMAGE', step: 3 },
+  { key: 'odometerImg', label: 'ODOMETER IMG', step: 4 },
+  { key: 'acImg', label: 'AC IMAGE', step: 4 },
 ];
 
 const mechanicalLabels: { label: string; key: string }[] = [
@@ -204,27 +232,114 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
 
   const status = (previewData?.status || '').toUpperCase();
   const vehicleDetails = previewData?.vehicleDetails;
-  const findPhoto = (type: string) => {
-    const arr = previewData?.inspectionPhotos || [];
-    return arr.find(
-      (p: any) =>
-        p.photoType?.toUpperCase() === type ||
-        p.imageCategory?.toUpperCase().includes(type.split('_')[0]) ||
-        (p.displayName || '').toUpperCase().includes(type.split('_')[0]),
+  const { imageMap, checklistImageMap } = useMemo(() => {
+    const iMap: Record<string, string> = {};
+    const cMap: Record<string, string> = {};
+
+    // 1. Exterior panels from exteriorPanelDetails
+    if (previewData?.exteriorPanelDetails && Array.isArray(previewData.exteriorPanelDetails)) {
+      previewData.exteriorPanelDetails.forEach((p: any) => {
+        if (p?.panelName && p?.imageUrl && !isVideoUrl(p.imageUrl)) {
+          cMap[p.panelName.trim()] = p.imageUrl;
+        }
+      });
+    }
+
+    // 2. Inspection photos
+    if (previewData?.inspectionPhotos && Array.isArray(previewData.inspectionPhotos)) {
+      previewData.inspectionPhotos.forEach((img: any) => {
+        if (!img?.imageUrl || isVideoUrl(img.imageUrl)) return;
+
+        let slotKey = img.photoType ? photoTypeToSlotKeyMap[img.photoType] : undefined;
+        if (!slotKey) {
+          const rawCat = (img.imageCategory || img.displayName || '').trim();
+          const lowerCat = rawCat.toLowerCase();
+          const cleanCat = lowerCat.replace(/[^a-z0-9]/g, '');
+
+          // Check exact match
+          slotKey = Object.keys(slotToCategoryMap).find(
+            (k) => slotToCategoryMap[k].toLowerCase() === lowerCat
+          );
+
+          // Check normalized clean match
+          if (!slotKey) {
+            slotKey = Object.keys(slotToCategoryMap).find((k) => {
+              const target = slotToCategoryMap[k].toLowerCase().replace(/[^a-z0-9]/g, '');
+              return cleanCat === target || cleanCat.startsWith(target) || cleanCat.includes(target);
+            });
+          }
+
+          // Check label match
+          if (!slotKey) {
+            const matchedSlot = imageSlotsConfig.find(
+              (s) => s.label.toLowerCase() === lowerCat || s.label.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCat
+            );
+            if (matchedSlot) slotKey = matchedSlot.key;
+          }
+        }
+
+        if (slotKey && !iMap[slotKey]) {
+          iMap[slotKey] = img.imageUrl;
+        }
+
+        const rawCat = (img.imageCategory || img.displayName || '').trim();
+        const cleanCat = rawCat.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Exclude mandatory slot categories from checklist mapping so they NEVER leak into checklist items
+        const isSlotCategory = Object.values(slotToCategoryMap).some(
+          (val) => val.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCat
+        );
+        if (rawCat && !isSlotCategory) {
+          cMap[rawCat] = img.imageUrl;
+        }
+      });
+    }
+
+    // 3. Videos strictly for Engine / Motor Noise
+    const rawVideos = (previewData?.inspectionVideos || []).concat(
+      previewData?.videoUrl ? [{ videoUrl: previewData.videoUrl, displayName: 'Vehicle Walkaround' }] : []
     );
+    if (rawVideos.length > 0) {
+      const vid = rawVideos.find((v: any) => (v.videoUrl || v.imageUrl || v.url) && v.captured !== false);
+      if (vid) {
+        cMap['Engine / Motor Noise'] = vid.videoUrl || vid.imageUrl || vid.url;
+      }
+    }
+
+    return { imageMap: iMap, checklistImageMap: cMap };
+  }, [previewData]);
+
+  const getChecklistPhoto = (label: string): string | null => {
+    if (!label) return null;
+    const direct = checklistImageMap[label] || checklistImageMap[label.trim()];
+    if (direct) return direct;
+
+    const clean = label.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const foundKey = Object.keys(checklistImageMap).find((k) => {
+      const kClean = k.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      return kClean === clean;
+    });
+    return foundKey ? checklistImageMap[foundKey] : null;
   };
 
-  const renderMedia = (url: string | null | undefined, label: string) => {
+  const renderMedia = (url: string | null | undefined, label: string, showEmpty = false) => {
     const resolved = resolveMediaUrl(url);
-    if (!resolved) {
+    const isNoise = label.toLowerCase().includes('noise');
+    const isVideo = resolved ? isVideoUrl(resolved) : false;
+
+    if (!resolved || (!isNoise && isVideo)) {
+      if (!showEmpty) return null;
       return (
         <View style={[styles.mediaEmpty, { backgroundColor: isDark ? '#171A24' : '#F2F4FA' }]}>
-          <Camera size={16} color={colors.mutedForeground} />
-          <Text style={[styles.mediaEmptyText, { color: colors.mutedForeground }]}>No photo attached</Text>
+          {isNoise ? <VideoIcon size={16} color={colors.mutedForeground} /> : <Camera size={16} color={colors.mutedForeground} />}
+          <Text style={[styles.mediaEmptyText, { color: colors.mutedForeground }]}>
+            {isNoise ? 'No video attached' : 'No photo attached'}
+          </Text>
         </View>
       );
     }
-    if (isVideoUrl(resolved)) {
+
+    // ONLY the Noise item can render the Video player
+    if (isNoise && isVideoUrl(resolved)) {
       return (
         <View style={[styles.mediaBox, { backgroundColor: '#000', overflow: 'hidden' }]}>
           <Video
@@ -238,6 +353,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
         </View>
       );
     }
+
     return (
       <TouchableOpacity style={styles.mediaBox} onPress={() => setLightbox(resolved)} activeOpacity={0.9}>
         <Image source={{ uri: resolved }} style={styles.mediaImage} resizeMode="cover" />
@@ -466,17 +582,18 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                   <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                     <View style={styles.panelTitleRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 2: Exterior Body Checklist</Text>
+                        <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 2: Exterior Panels Evaluation</Text>
                         <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                          State condition and paint parameters of exterior sheet metal panels.
+                          Review each body panel for scratches, dents, repainting or structural damages.
                         </Text>
                       </View>
-                      {renderRating(previewData?.ratings?.exterior, 4)}
+                      {renderRating(previewData?.ratings?.exterior, 5)}
                     </View>
                     <View style={styles.panelBody}>
                       <View style={styles.grid2}>
                         {(previewData?.exteriorPanelDetails || []).map((p: any, idx: number) => {
-                          const cond = p.condition || 'OK';
+                          const cond = (p.condition || 'OK').toUpperCase();
+                          const isNa = cond === 'NA' || cond === 'N/A';
                           const cc = panelConditionColors[cond] || panelConditionColors.OK;
                           return (
                             <View key={idx} style={[styles.itemCard, { backgroundColor: isDark ? '#171A24' : '#F2F4FA', borderColor: colors.border }]}>
@@ -488,7 +605,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                                   <Text style={[styles.condPillText, { color: cc.color }]}>{cond}</Text>
                                 </View>
                               </View>
-                              {renderMedia(p.imageUrl, p.panelName)}
+                              {!isNa && renderMedia(p.imageUrl || getChecklistPhoto(p.panelName), p.panelName)}
                             </View>
                           );
                         })}
@@ -499,21 +616,18 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                   <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                     <Text style={[styles.panelTitle, { color: colors.foreground }]}>Mandatory Exterior Images</Text>
                     <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                      Clean, high-resolution photos of five primary panels.
+                      Upload clean, high-resolution photos of five primary panels.
                     </Text>
                     <View style={styles.panelBody}>
-                      <View style={styles.grid2}>
-                        {mandatoryExteriorSlots.map((slot) => {
-                          const matched = findPhoto(slot.type);
-                          return (
-                            <View key={slot.type} style={[styles.photoCard, { borderColor: colors.border }]}>
-                              <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
-                                {slot.label}
-                              </Text>
-                              {renderMedia(matched?.imageUrl, slot.label)}
-                            </View>
-                          );
-                        })}
+                      <View style={styles.photoGrid}>
+                        {imageSlotsConfig.filter((slot) => slot.step === 1).map((slot) => (
+                          <View key={slot.key} style={[styles.photoCard, { borderColor: colors.border }]}>
+                            <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
+                              {slot.label}
+                            </Text>
+                            {renderMedia(imageMap[slot.key], slot.label, true)}
+                          </View>
+                        ))}
                       </View>
                     </View>
                   </View>
@@ -528,7 +642,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 3: Mechanical Health Diagnostics</Text>
                         <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                          Engine compartment, transmission bay and brake assemblies.
+                          Check items inside engine compartment, transmission bay and brake assemblies.
                         </Text>
                       </View>
                       {renderRating(previewData?.ratings?.mechanical, 5)}
@@ -536,18 +650,9 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                     <View style={styles.panelBody}>
                       <View style={styles.grid2}>
                         {mechanicalLabels.map((item, idx) => {
-                          const matchedPhoto = (previewData?.inspectionPhotos || [])
-                            .concat(previewData?.inspectionVideos || [])
-                            .filter((p: any) => p && (p.imageUrl || p.videoUrl || p.url))
-                            .find(
-                              (p: any) =>
-                                p.photoType?.toUpperCase() === item.label.toUpperCase() ||
-                                p.imageCategory?.toUpperCase() === item.label.toUpperCase() ||
-                                p.displayName?.toUpperCase() === item.label.toUpperCase() ||
-                                (item.label.includes('Noise') &&
-                                  (p.imageCategory?.toUpperCase().includes('NOISE') || p.displayName?.toUpperCase().includes('NOISE'))),
-                            );
-                          const rawUrl = matchedPhoto?.imageUrl || matchedPhoto?.videoUrl || matchedPhoto?.url;
+                          const val = (previewData?.mechanicalDetails?.[item.key] || 'OK').toUpperCase().trim();
+                          const isNa = val === 'NA' || val === 'N/A' || val === 'NOT APPLICABLE';
+                          const isNoise = item.label.toLowerCase().includes('noise');
                           return (
                             <View key={idx} style={[styles.itemCard, { backgroundColor: isDark ? '#171A24' : '#F2F4FA', borderColor: colors.border }]}>
                               <View style={styles.itemHeader}>
@@ -560,7 +665,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                                   </Text>
                                 </View>
                               </View>
-                              {renderMedia(rawUrl, item.label)}
+                              {!isNa && renderMedia(getChecklistPhoto(item.label), item.label, isNoise)}
                             </View>
                           );
                         })}
@@ -571,21 +676,18 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                   <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                     <Text style={[styles.panelTitle, { color: colors.foreground }]}>Under-Bonnet Engine Room Photos</Text>
                     <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                      Engine compartment and battery bay photos.
+                      Clear views of motor cylinders, fluid caps, and battery mounts.
                     </Text>
                     <View style={styles.panelBody}>
-                      <View style={styles.grid2}>
-                        {engineSlots.map((slot) => {
-                          const matched = findPhoto(slot.type);
-                          return (
-                            <View key={slot.type} style={[styles.photoCard, { borderColor: colors.border }]}>
-                              <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
-                                {slot.label}
-                              </Text>
-                              {renderMedia(matched?.imageUrl, slot.label)}
-                            </View>
-                          );
-                        })}
+                      <View style={styles.photoGrid}>
+                        {imageSlotsConfig.filter((slot) => slot.step === 2).map((slot) => (
+                          <View key={slot.key} style={[styles.photoCard, { borderColor: colors.border }]}>
+                            <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
+                              {slot.label}
+                            </Text>
+                            {renderMedia(imageMap[slot.key], slot.label, true)}
+                          </View>
+                        ))}
                       </View>
                     </View>
                   </View>
@@ -600,7 +702,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 4: Tyres Specifications</Text>
                         <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                          Remaining tread depth percentage and brand names for all wheels.
+                          Enter remaining tread depth percentage and brand names for all wheels.
                         </Text>
                       </View>
                       {renderRating(previewData?.ratings?.tyre, 4)}
@@ -621,7 +723,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                         </View>
                       ))}
 
-                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Emergency Toolkit & Equipment</Text>
+                      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Emergency Toolkit Checklist</Text>
                       <View style={styles.grid2}>
                         {emergencyItems(previewData?.tyreDetails).map((eq, idx) => (
                           <View key={idx} style={[styles.toolkitCard, { backgroundColor: isDark ? '#171A24' : '#F2F4FA', borderColor: colors.border }]}>
@@ -638,23 +740,20 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                   </View>
 
                   <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>Tyres & Spare Wheel Photos</Text>
+                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>Individual Tyre Profile Images</Text>
                     <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                      Individual photos of four active tyres and spare wheel in boot.
+                      Upload tread close-ups for all 4 positions and spare wheel.
                     </Text>
                     <View style={styles.panelBody}>
-                      <View style={styles.grid2}>
-                        {tyreSlots.map((slot) => {
-                          const matched = findPhoto(slot.type);
-                          return (
-                            <View key={slot.type} style={[styles.photoCard, { borderColor: colors.border }]}>
-                              <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
-                                {slot.label}
-                              </Text>
-                              {renderMedia(matched?.imageUrl, slot.label)}
-                            </View>
-                          );
-                        })}
+                      <View style={styles.photoGrid}>
+                        {imageSlotsConfig.filter((slot) => slot.step === 3).map((slot) => (
+                          <View key={slot.key} style={[styles.photoCard, { borderColor: colors.border }]}>
+                            <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
+                              {slot.label}
+                            </Text>
+                            {renderMedia(imageMap[slot.key], slot.label, true)}
+                          </View>
+                        ))}
                       </View>
                     </View>
                   </View>
@@ -665,11 +764,30 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
               {activeStep === 4 && (
                 <View style={{ gap: 14 }}>
                   <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
+                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>Cabin & Electrical Components</Text>
+                    <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
+                      Upload odometer and AC control photo slots.
+                    </Text>
+                    <View style={styles.panelBody}>
+                      <View style={styles.photoGrid}>
+                        {imageSlotsConfig.filter((slot) => slot.step === 4).map((slot) => (
+                          <View key={slot.key} style={[styles.photoCard, { borderColor: colors.border }]}>
+                            <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
+                              {slot.label}
+                            </Text>
+                            {renderMedia(imageMap[slot.key], slot.label, true)}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                     <View style={styles.panelTitleRow}>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.panelTitle, { color: colors.foreground }]}>Step 5: Interior & Electrical Checklist</Text>
+                        <Text style={[styles.panelTitle, { color: colors.foreground }]}>Interior & Electrical Diagnostics</Text>
                         <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                          Interior electronics, battery brand, AC cooling and accessories.
+                          Parameters from Electrical & Interior Report.
                         </Text>
                       </View>
                       {renderRating(previewData?.ratings?.interior, 4)}
@@ -698,18 +816,8 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
 
                       <View style={styles.grid2}>
                         {electricalItems(previewData?.interiorDetails).map((item, idx) => {
-                          const itemClean = item.label.toUpperCase().replace(/[^A-Z]/g, '');
-                          const matchedPhoto = (previewData?.inspectionPhotos || []).find((p: any) => {
-                            const pType = (p.photoType || '').toUpperCase().replace(/[^A-Z]/g, '');
-                            const pCat = (p.imageCategory || '').toUpperCase().replace(/[^A-Z]/g, '');
-                            const pDisp = (p.displayName || '').toUpperCase().replace(/[^A-Z]/g, '');
-                            if (pCat === itemClean || pDisp === itemClean) return true;
-                            if (['INTERIOR', 'EXTERIOR', 'MECHANICAL', 'TYRE', 'TYRES'].includes(pCat)) return false;
-                            if (pType && (pType === itemClean || itemClean.includes(pType) || pType.includes(itemClean))) return true;
-                            if (pCat && (pCat.includes(itemClean) || itemClean.includes(pCat))) return true;
-                            if (pDisp && (pDisp.includes(itemClean) || itemClean.includes(pDisp))) return true;
-                            return false;
-                          });
+                          const val = (item.val || 'OK / WORKING').toUpperCase().trim();
+                          const isNa = val === 'NA' || val === 'N/A' || val === 'NOT APPLICABLE';
                           return (
                             <View key={idx} style={[styles.itemCard, { backgroundColor: isDark ? '#171A24' : '#F2F4FA', borderColor: colors.border }]}>
                               <View style={styles.itemHeader}>
@@ -720,7 +828,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                                   <Text style={[styles.valPillText, { color: colors.foreground }]}>{item.val || 'OK / WORKING'}</Text>
                                 </View>
                               </View>
-                              {renderMedia(matchedPhoto?.imageUrl, item.label)}
+                              {!isNa && renderMedia(getChecklistPhoto(item.label), item.label)}
                             </View>
                           );
                         })}
@@ -733,28 +841,6 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                             {previewData?.interiorDetails?.remarks || 'No remarks entered.'}
                           </Text>
                         </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-                    <Text style={[styles.panelTitle, { color: colors.foreground }]}>Interior & Cabin Mandatory Photos</Text>
-                    <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                      Odometer reading and AC panel photos.
-                    </Text>
-                    <View style={styles.panelBody}>
-                      <View style={styles.grid2}>
-                        {interiorSlots.map((slot) => {
-                          const matched = findPhoto(slot.type);
-                          return (
-                            <View key={slot.type} style={[styles.photoCard, { borderColor: colors.border }]}>
-                              <Text style={[styles.photoLabel, { color: colors.foreground }]} numberOfLines={1}>
-                                {slot.label}
-                              </Text>
-                              {renderMedia(matched?.imageUrl, slot.label)}
-                            </View>
-                          );
-                        })}
                       </View>
                     </View>
                   </View>
@@ -1109,7 +1195,7 @@ const styles = StyleSheet.create({
   },
   mediaBox: {
     width: '100%',
-    height: 180,
+    height: 130,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
@@ -1145,13 +1231,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 34,
   },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   photoCard: {
-    width: '100%',
-    flexGrow: 1,
+    width: '48%',
     borderWidth: 1,
     borderRadius: 14,
     padding: 10,
     gap: 8,
+    marginBottom: 10,
   },
   photoLabel: {
     fontSize: 10,

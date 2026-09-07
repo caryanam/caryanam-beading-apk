@@ -43,6 +43,7 @@ export const inspectorService = {
     formData.append('file', file);
     const res = await apiClient.post(`/api/inspector/inspection/${id}/image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
     });
     return res.data;
   },
