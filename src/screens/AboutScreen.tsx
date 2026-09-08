@@ -51,7 +51,7 @@ export const AboutScreen: React.FC = () => {
             </View>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Sub-Second Live Auction Engine</Text>
             <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
-              Powers 10-minute live auctions with sub-second WebSocket bid synchronization, countdown timers, and immediate winner determination across dealer devices.
+              Powers 30-minute live auctions with sub-second WebSocket bid synchronization, countdown timers, and immediate winner determination across dealer devices.
             </Text>
           </View>
         </View>

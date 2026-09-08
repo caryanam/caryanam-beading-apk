@@ -68,6 +68,24 @@ const panelConditionColors: Record<string, { color: string; bg: string }> = {
   NA: { color: '#94A3B8', bg: 'rgba(148,163,184,0.12)' },
 };
 
+const slotPhotoTypeMap: Record<string, string[]> = {
+  frontSide: ['FRONT_VIEW', 'frontSide', 'Front', 'FRONT SIDE IMAGE', 'FRONT'],
+  rightSide: ['RIGHT_FRONT_VIEW', 'rightSide', 'Right', 'RIGHT SIDE IMAGE', 'RIGHT'],
+  leftSide: ['LEFT_FRONT_VIEW', 'leftSide', 'Left', 'LEFT SIDE IMAGE', 'LEFT'],
+  rearSide: ['REAR_VIEW', 'rearSide', 'Rear', 'REAR SIDE IMAGE', 'REAR'],
+  roofTop: ['ROOF_VIEW', 'roofTop', 'Roof', 'ROOF TOP IMAGE', 'ROOF'],
+  engineImg: ['ENGINE_IMAGE', 'engineImg', 'Engine', 'ENGINE / MOTOR IMG', 'ENGINE ROOM PHOTO', 'ENGINE'],
+  batteryImg: ['BATTERY_IMAGE', 'batteryImg', 'Battery', 'BATTERY IMG', 'BATTERY BAY PHOTO', 'BATTERY'],
+  rfTyreImg: ['FRONT_RIGHT_TYRE', 'rfTyreImg', 'Front Right', 'RIGHT SIDE FRONT TYRE IMG', 'RF_TYRE', 'FRONT_RIGHT'],
+  rrTyreImg: ['REAR_RIGHT_TYRE', 'rrTyreImg', 'Rear Right', 'RIGHT SIDE REAR TYRE IMG', 'RR_TYRE', 'REAR_RIGHT'],
+  lrTyreImg: ['REAR_LEFT_TYRE', 'lrTyreImg', 'Rear Left', 'LEFT SIDE REAR TYRE IMG', 'LR_TYRE', 'REAR_LEFT'],
+  lfTyreImg: ['FRONT_LEFT_TYRE', 'lfTyreImg', 'Front Left', 'LEFT SIDE FRONT TYRE IMG', 'LF_TYRE', 'FRONT_LEFT'],
+  spareWheelImg: ['SPARE_WHEEL', 'spareWheelImg', 'Spare', 'SPARE WHEEL IMG', 'SPARE'],
+  tyresGeneralImg: ['TYRES_OVERVIEW', 'tyresGeneralImg', 'Tyres', 'TYRES OVERVIEW IMAGE', 'TYRES'],
+  odometerImg: ['ODOMETER_IMAGE', 'odometerImg', 'Odometer', 'ODOMETER IMG', 'ODOMETER READING PHOTO', 'ODOMETER'],
+  acImg: ['AC_CONTROL_IMAGE', 'acImg', 'AC Control', 'AC IMAGE', 'AC CONTROL PANEL PHOTO', 'AC'],
+};
+
 const slotToCategoryMap: Record<string, string> = {
   frontSide: 'Front',
   rightSide: 'Right',
@@ -104,11 +122,66 @@ const photoTypeToSlotKeyMap: Record<string, string> = {
   AC_CONTROL_IMAGE: 'acImg',
 };
 
+const exteriorPanelsOrder = [
+  /* ── Front Side ── */
+  'Front Bonnet Hood',
+  'Front Bumper',
+  'Front Wind Shield',
+
+  /* ── Right Side ── */
+  'Right Side Fender',
+  'Right Side Front Door',
+  'Right Side Front Window',
+  'Right Side Rear Door',
+  'Right Side Quarter Panel',
+  'Right Side Quarter Panel Window',
+  'Right Side A Pillar',
+  'Right Side B Pillar',
+  'Right Side C Pillar',
+  'Right Side Running Board',
+  'Right Side Mirror',
+
+  /* ── Left Side ── */
+  'Left Side Fender',
+  'Left Side Front Door',
+  'Left Side Rear Door',
+  'Left Side Quarter Panel',
+  'Left Side Quarter Panel Window',
+  'Left Side A Pillar',
+  'Left Side B Pillar',
+  'Left Side C Pillar',
+  'Left Side Running Board',
+  'Left Side Mirror',
+
+  /* ── Other (Rear, Roof, Structure & Identification) ── */
+  'Trunk Door (Dicky)',
+  'Rear Bumper',
+  'Rear Wind Shield',
+  'Roof Top',
+  'Chassis Embossing',
+  'VIN Plate',
+  'Under Body Damages',
+];
+
+const sortExteriorPanels = (panels: any[]) => {
+  if (!panels || !Array.isArray(panels)) return [];
+  return [...panels].sort((a, b) => {
+    const nameA = (a.panelName || a.name || '').trim();
+    const nameB = (b.panelName || b.name || '').trim();
+    const idxA = exteriorPanelsOrder.indexOf(nameA);
+    const idxB = exteriorPanelsOrder.indexOf(nameB);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return nameA.localeCompare(nameB);
+  });
+};
+
 const imageSlotsConfig = [
   { key: 'frontSide', label: 'FRONT SIDE IMAGE', step: 1 },
   { key: 'rightSide', label: 'RIGHT SIDE IMAGE', step: 1 },
-  { key: 'rearSide', label: 'REAR SIDE IMAGE', step: 1 },
   { key: 'leftSide', label: 'LEFT SIDE IMAGE', step: 1 },
+  { key: 'rearSide', label: 'REAR SIDE IMAGE', step: 1 },
   { key: 'roofTop', label: 'ROOF TOP IMAGE', step: 1 },
   { key: 'engineImg', label: 'ENGINE / MOTOR IMG', step: 2 },
   { key: 'batteryImg', label: 'BATTERY IMG', step: 2 },
@@ -248,60 +321,60 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
     // 2. Inspection photos
     if (previewData?.inspectionPhotos && Array.isArray(previewData.inspectionPhotos)) {
       previewData.inspectionPhotos.forEach((img: any) => {
-        if (!img?.imageUrl || isVideoUrl(img.imageUrl)) return;
+        const rawUrl = img?.imageUrl || img?.url;
+        if (!rawUrl || isVideoUrl(rawUrl)) return;
 
-        let slotKey = img.photoType ? photoTypeToSlotKeyMap[img.photoType] : undefined;
-        if (!slotKey) {
-          const rawCat = (img.imageCategory || img.displayName || '').trim();
-          const lowerCat = rawCat.toLowerCase();
-          const cleanCat = lowerCat.replace(/[^a-z0-9]/g, '');
+        const pType = (img.photoType || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const pCat = (img.imageCategory || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const pDisp = (img.displayName || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-          // Check exact match
-          slotKey = Object.keys(slotToCategoryMap).find(
-            (k) => slotToCategoryMap[k].toLowerCase() === lowerCat
-          );
-
-          // Check normalized clean match
-          if (!slotKey) {
-            slotKey = Object.keys(slotToCategoryMap).find((k) => {
-              const target = slotToCategoryMap[k].toLowerCase().replace(/[^a-z0-9]/g, '');
-              return cleanCat === target || cleanCat.startsWith(target) || cleanCat.includes(target);
-            });
-          }
-
-          // Check label match
-          if (!slotKey) {
-            const matchedSlot = imageSlotsConfig.find(
-              (s) => s.label.toLowerCase() === lowerCat || s.label.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCat
-            );
-            if (matchedSlot) slotKey = matchedSlot.key;
+        let matchedSlotKey: string | undefined;
+        for (const [slotKey, aliases] of Object.entries(slotPhotoTypeMap)) {
+          const cleanAliases = aliases.map((a) => a.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+          if (cleanAliases.some((a) => (pType && pType === a) || (pCat && pCat === a) || (pDisp && pDisp === a))) {
+            matchedSlotKey = slotKey;
+            break;
           }
         }
 
-        if (slotKey && !iMap[slotKey]) {
-          iMap[slotKey] = img.imageUrl;
-        }
-
-        const rawCat = (img.imageCategory || img.displayName || '').trim();
-        const cleanCat = rawCat.toLowerCase().replace(/[^a-z0-9]/g, '');
-        // Exclude mandatory slot categories from checklist mapping so they NEVER leak into checklist items
-        const isSlotCategory = Object.values(slotToCategoryMap).some(
-          (val) => val.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCat
-        );
-        if (rawCat && !isSlotCategory) {
-          cMap[rawCat] = img.imageUrl;
+        if (matchedSlotKey) {
+          if (!iMap[matchedSlotKey]) {
+            iMap[matchedSlotKey] = rawUrl;
+          }
+        } else {
+          const rawName = (img.displayName || img.imageCategory || '').trim();
+          const cleanName = rawName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const isSectionName = ['INTERIOR', 'EXTERIOR', 'MECHANICAL', 'TYRE', 'TYRES', 'ELECTRICAL'].includes(cleanName);
+          if (rawName && !isSectionName) {
+            cMap[rawName] = rawUrl;
+          }
         }
       });
     }
 
     // 3. Videos strictly for Engine / Motor Noise
-    const rawVideos = (previewData?.inspectionVideos || []).concat(
-      previewData?.videoUrl ? [{ videoUrl: previewData.videoUrl, displayName: 'Vehicle Walkaround' }] : []
-    );
-    if (rawVideos.length > 0) {
-      const vid = rawVideos.find((v: any) => (v.videoUrl || v.imageUrl || v.url) && v.captured !== false);
-      if (vid) {
-        cMap['Engine / Motor Noise'] = vid.videoUrl || vid.imageUrl || vid.url;
+    const inspectionVideos = previewData?.inspectionVideos || [];
+    const noiseVid = inspectionVideos.find((v: any) => {
+      if (!v) return false;
+      const url = v.videoUrl || v.url || v.imageUrl;
+      if (!url) return false;
+      const disp = (v.displayName || v.videoType || v.imageCategory || '').toUpperCase();
+      return disp.includes('NOISE') || disp.includes('ENGINE / MOTOR NOISE');
+    });
+    if (noiseVid) {
+      cMap['Engine / Motor Noise'] = noiseVid.videoUrl || noiseVid.url || noiseVid.imageUrl;
+    } else {
+      const photos = previewData?.inspectionPhotos || [];
+      const photoVid = photos.find((p: any) => {
+        if (!p) return false;
+        const url = p.imageUrl || p.videoUrl || p.url;
+        if (!url) return false;
+        const disp = (p.displayName || p.imageCategory || p.photoType || '').toUpperCase();
+        const isNoise = disp.includes('NOISE') || disp.includes('ENGINE / MOTOR NOISE');
+        return isNoise && (p.videoUrl || (url && isVideoUrl(url)));
+      });
+      if (photoVid) {
+        cMap['Engine / Motor Noise'] = photoVid.imageUrl || photoVid.videoUrl || photoVid.url;
       }
     }
 
@@ -591,7 +664,7 @@ export const InspectorVehicleDetailScreen: React.FC<InspectorVehicleDetailScreen
                     </View>
                     <View style={styles.panelBody}>
                       <View style={styles.grid2}>
-                        {(previewData?.exteriorPanelDetails || []).map((p: any, idx: number) => {
+                        {sortExteriorPanels(previewData?.exteriorPanelDetails || []).map((p: any, idx: number) => {
                           const cond = (p.condition || 'OK').toUpperCase();
                           const isNa = cond === 'NA' || cond === 'N/A';
                           const cc = panelConditionColors[cond] || panelConditionColors.OK;

@@ -181,10 +181,12 @@ export const AdminAuctionDetailScreen: React.FC<AdminAuctionDetailScreenProps> =
     if (!inspectionId) return;
     setLaunching(true);
     try {
-      showToast({ message: 'Launching live auction room...', type: 'info' });
-      const res = await adminService.startLiveAuction(inspectionId);
+      const isFreelancer = inspection?.sourceType === 'FREELANCER' || inspection?.inspectorRole === 'FREELANCER';
+      const duration = isFreelancer ? 15 : 30;
+      showToast({ message: `Launching live ${duration}-minute auction room...`, type: 'info' });
+      const res = await adminService.startLiveAuction(inspectionId, duration);
       if (res.success) {
-        showToast({ message: 'Auction is now LIVE!', type: 'success' });
+        showToast({ message: `${duration}-Minute Auction is now LIVE!`, type: 'success' });
         fetchDetail();
       } else {
         showToast({ message: res.message || 'Failed to launch auction.', type: 'error' });

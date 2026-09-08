@@ -125,9 +125,13 @@ export const adminService = {
 
   // Start live auction (Go Live)
   async startLiveAuction(inspectionId: number, durationMinutes?: number) {
-    const res = await apiClient.put(`/api/admin/inspection/${inspectionId}/go-live`, null, {
-      params: durationMinutes ? { duration: durationMinutes } : undefined
-    });
+    const res = await apiClient.put(
+      `/api/admin/inspection/${inspectionId}/go-live`,
+      durationMinutes ? { duration: durationMinutes, durationMinutes } : null,
+      {
+        params: durationMinutes ? { duration: durationMinutes, durationMinutes } : undefined
+      }
+    );
     return res.data;
   },
 

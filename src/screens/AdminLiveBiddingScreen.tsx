@@ -172,7 +172,7 @@ export const AdminLiveBiddingScreen: React.FC<AdminLiveBiddingScreenProps> = ({ 
   const [highestBid, setHighestBid] = useState<number>(0);
   const [highestBidder, setHighestBidder] = useState<string>('No bids placed');
   const [totalBids, setTotalBids] = useState<number>(0);
-  const [endTime, setEndTime] = useState<number>(Date.now() + 600 * 1000);
+  const [endTime, setEndTime] = useState<number>(Date.now() + 30 * 60 * 1000);
   const [status, setStatus] = useState<string>('LIVE');
   const [bidHistory, setBidHistory] = useState<LiveBidRecord[]>([]);
 
@@ -297,7 +297,7 @@ useEffect(() => {
     setHighestBid(selectedRoom.currentHighestBid || selectedRoom.suggestedPrice || 0);
     setHighestBidder(selectedRoom.currentHighestBidder || 'No bids placed');
     setTotalBids(selectedRoom.totalBids || 0);
-    setEndTime(selectedRoom.auctionEndTime || Date.now() + 600 * 1000);
+    setEndTime(selectedRoom.auctionEndTime || Date.now() + (selectedRoom.sourceType === 'FREELANCER' ? 15 : 30) * 60 * 1000);
     setStatus(selectedRoom.vehicleStatus || 'LIVE');
     if (selectedRoom.sellerAgreed !== undefined && selectedRoom.sellerAgreed !== null) {
       setSellerResp({ agreed: selectedRoom.sellerAgreed, counterPrice: selectedRoom.sellerCounterPrice, message: selectedRoom.sellerMessage });
@@ -700,7 +700,7 @@ useEffect(() => {
                     <View style={[styles.roomTimer, { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
                       <Clock size={12} color="#FFC700" />
                       <Text style={[styles.roomTimerText, { color: colors.foreground }]}>
-                        {timeLeft(v.auctionEndTime || Date.now() + 600 * 1000)}
+                        {timeLeft(v.auctionEndTime || Date.now() + (v.sourceType === 'FREELANCER' ? 15 : 30) * 60 * 1000)}
                       </Text>
                     </View>
                   </View>

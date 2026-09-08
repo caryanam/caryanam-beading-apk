@@ -16,7 +16,7 @@ export const WhyChooseScreen: React.FC = () => {
     {
       icon: Zap,
       title: 'Sub-Second WebSocket Live Bids',
-      desc: 'Our real-time bidding server synchronizes bids, active room logs, and live 10-minute auction countdown timers instantaneously across all connected dealer devices.',
+      desc: 'Our real-time bidding server synchronizes bids, active room logs, and live 30-minute auction countdown timers instantaneously across all connected dealer devices.',
     },
     {
       icon: Trophy,

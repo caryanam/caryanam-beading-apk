@@ -49,37 +49,44 @@ const steps = [
 ];
 
 const exteriorPanels = [
+  /* ── Front Side ── */
+  'Front Bonnet Hood',
+  'Front Bumper',
+  'Front Wind Shield',
+
+  /* ── Right Side ── */
   'Right Side Fender',
   'Right Side Front Door',
+  'Right Side Front Window',
   'Right Side Rear Door',
+  'Right Side Quarter Panel',
   'Right Side Quarter Panel Window',
   'Right Side A Pillar',
   'Right Side B Pillar',
   'Right Side C Pillar',
   'Right Side Running Board',
-  'Trunk Door (Dicky)',
-  'Rear Bumper',
-  'Left Side Rear Door',
+  'Right Side Mirror',
+
+  /* ── Left Side ── */
+  'Left Side Fender',
   'Left Side Front Door',
-  'Left Side Running Board',
+  'Left Side Rear Door',
   'Left Side Quarter Panel',
+  'Left Side Quarter Panel Window',
   'Left Side A Pillar',
   'Left Side B Pillar',
   'Left Side C Pillar',
-  'Left Side Fender',
-  'Right Side Mirror',
+  'Left Side Running Board',
   'Left Side Mirror',
-  'Front Bonnet Hood',
-  'Front Bumper',
-  'Front Wind Shield',
+
+  /* ── Other (Rear, Roof, Structure & Identification) ── */
+  'Trunk Door (Dicky)',
+  'Rear Bumper',
   'Rear Wind Shield',
   'Roof Top',
   'Chassis Embossing',
   'VIN Plate',
   'Under Body Damages',
-  'Right Side Quarter Panel',
-  'Right Side Front Window',
-  'Left Side Quarter Panel Window',
 ];
 
 const panelConditions = ['OK', 'DAMAGED', 'REPAINTED', 'CHANGED', 'SCRATCH', 'DENT', 'RUST', 'NA'];
@@ -183,8 +190,8 @@ const photoTypeToSlotKeyMap: Record<string, string> = {
 const imageSlotsConfig = [
   { key: 'frontSide', label: 'FRONT SIDE IMAGE', step: 1 },
   { key: 'rightSide', label: 'RIGHT SIDE IMAGE', step: 1 },
-  { key: 'rearSide', label: 'REAR SIDE IMAGE', step: 1 },
   { key: 'leftSide', label: 'LEFT SIDE IMAGE', step: 1 },
+  { key: 'rearSide', label: 'REAR SIDE IMAGE', step: 1 },
   { key: 'roofTop', label: 'ROOF TOP IMAGE', step: 1 },
   { key: 'engineImg', label: 'ENGINE / MOTOR IMG', step: 2 },
   { key: 'batteryImg', label: 'BATTERY IMG', step: 2 },
@@ -377,6 +384,7 @@ interface PhotoSlotProps {
   value?: string;
   error?: string;
   isVideo?: boolean;
+  optional?: boolean;
   uploading?: boolean;
   onPick: () => void;
   onRemove: () => void;
@@ -384,7 +392,7 @@ interface PhotoSlotProps {
   isDark: boolean;
 }
 
-const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, uploading, onPick, onRemove, colors, isDark: _isDark }) => {
+const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, optional, uploading, onPick, onRemove, colors, isDark: _isDark }) => {
   const resolved = resolveMediaUrl(value);
   const isVideoItem = !!isVideo;
   const isMediaVideo = resolved ? isVideoUrl(resolved) : false;
@@ -401,6 +409,10 @@ const PhotoSlot: React.FC<PhotoSlotProps> = ({ label, value, error, isVideo, upl
           <View style={styles.capturedPill}>
             <CheckCircle2 size={10} color="#10B981" />
             <Text style={styles.capturedPillText}>Captured</Text>
+          </View>
+        ) : optional ? (
+          <View style={[styles.requiredPill, { backgroundColor: 'rgba(156, 163, 175, 0.15)', borderColor: 'rgba(156, 163, 175, 0.3)' }]}>
+            <Text style={[styles.requiredPillText, { color: colors.mutedForeground }]}>Optional</Text>
           </View>
         ) : (
           <View style={styles.requiredPill}>
@@ -1209,7 +1221,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
       if (!basicDetails.roadTaxPaid) newErrors.roadTaxPaid = 'Road Tax Paid status is required.';
       if (!basicDetails.fitnessUpto) newErrors.fitnessUpto = 'Fitness Valid Upto Date is required.';
     } else if (stepIndex === 1) {
-      const extSlots = ['frontSide', 'rightSide', 'rearSide', 'leftSide', 'roofTop'];
+      const extSlots = ['frontSide', 'rightSide', 'leftSide', 'rearSide', 'roofTop'];
       extSlots.forEach((slot) => {
         if (!partImages[slot]) {
           const config = imageSlotsConfig.find((c) => c.key === slot);
@@ -1223,19 +1235,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
         }
       });
     } else if (stepIndex === 2) {
-      const mechSlots = ['engineImg', 'batteryImg'];
-      mechSlots.forEach((slot) => {
-        if (!partImages[slot]) {
-          const config = imageSlotsConfig.find((c) => c.key === slot);
-          newErrors[slot] = `${config ? config.label : slot} photo is required.`;
-        }
-      });
-      mechanicalItems.forEach((item) => {
-        const cond = mechanicalState[item.name];
-        if (cond !== 'NA' && cond !== 'N/A' && !panelImages[item.name]) {
-          newErrors[item.name] = `Photo is required for ${item.name}.`;
-        }
-      });
+      // Step 3: Mechanical Health Diagnostics - image uploads are optional
     } else if (stepIndex === 3) {
       const tyreSlots = ['rfTyreImg', 'rrTyreImg', 'lrTyreImg', 'lfTyreImg', 'spareWheelImg', 'tyresGeneralImg'];
       tyreSlots.forEach((slot) => {
@@ -1249,19 +1249,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
       if (!electricalState['Full Battery Number']) newErrors['Full Battery Number'] = 'Full Battery Number is required.';
       if (!electricalState['AC']) newErrors['AC'] = 'AC Cooling Performance is required.';
 
-      const intSlots = ['odometerImg', 'acImg'];
-      intSlots.forEach((slot) => {
-        if (!partImages[slot]) {
-          const config = imageSlotsConfig.find((c) => c.key === slot);
-          newErrors[slot] = `${config ? config.label : slot} photo is required.`;
-        }
-      });
-      electricalItems.forEach((item) => {
-        const cond = electricalState[item];
-        if (cond !== 'NA' && cond !== 'N/A' && !panelImages[item]) {
-          newErrors[item] = `Photo is required for ${item}.`;
-        }
-      });
+      // Step 5: Interior & Electrical - image uploads are optional
     }
 
     setErrors(newErrors);
@@ -1970,7 +1958,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                 <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                   <Text style={[styles.panelTitle, { color: colors.foreground }]}>Under-Bonnet Engine Room Photos</Text>
                   <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                    Clear views of motor cylinders, fluid caps, and battery mounts.
+                    Clear views of motor cylinders, fluid caps, and battery mounts (Optional).
                   </Text>
                   <View style={styles.panelBody}>
                     <View style={styles.photoGrid}>
@@ -1980,6 +1968,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                           label={slot.label}
                           value={partImages[slot.key]}
                           error={errors[slot.key]}
+                          optional={true}
                           uploading={uploadingKey === slot.key}
                           onPick={() => pickAndUpload(slot.key, slotToCategoryMap[slot.key])}
                           onRemove={() => removeSlotImg(slot.key)}
@@ -2105,7 +2094,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                 <View style={[styles.panelCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
                   <Text style={[styles.panelTitle, { color: colors.foreground }]}>Cabin & Electrical Components</Text>
                   <Text style={[styles.panelDesc, { color: colors.mutedForeground }]}>
-                    Upload odometer and AC control photo slots.
+                    Upload odometer and AC control photo slots (Optional).
                   </Text>
                   <View style={styles.panelBody}>
                     <View style={styles.photoGrid}>
@@ -2115,6 +2104,7 @@ export const InspectorAddVehicleScreen: React.FC<InspectorAddVehicleScreenProps>
                           label={slot.label}
                           value={partImages[slot.key]}
                           error={errors[slot.key]}
+                          optional={true}
                           uploading={uploadingKey === slot.key}
                           onPick={() => pickAndUpload(slot.key, slotToCategoryMap[slot.key])}
                           onRemove={() => removeSlotImg(slot.key)}

@@ -186,7 +186,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
           {/* Hero Subtitle Description */}
           <Text style={styles.heroDescription}>
-            Access 140+ point digital inspection reports, participate in real-time 10-minute live auctions, and acquire pre-owned vehicles with complete transparency.
+            Access 140+ point digital inspection reports, participate in real-time 30-minute live auctions, and acquire pre-owned vehicles with complete transparency.
           </Text>
 
           {/* Hero Capsule Button Group */}
@@ -247,7 +247,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           {/* Row 2 */}
           <View style={styles.statsRow}>
             {[
-              { val: '10-Min', label: 'LIVE AUCTION WINDOWS', icon: Clock },
+              { val: '30-Min', label: 'LIVE AUCTION WINDOWS', icon: Clock },
               { val: '100%', label: 'INSPECTION AUTHENTICITY', icon: ShieldCheck },
             ].map((stat, i) => {
               const IconComp = stat.icon;

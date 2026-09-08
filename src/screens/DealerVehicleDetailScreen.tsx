@@ -217,7 +217,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
         const t = (v.transmission || '').toLowerCase();
         if (t.includes('auto')) transmissionType = 'Automatic';
 
-        const endsAtTime = v.auctionEndTime || Date.now() + 1000 * 60 * 60 * 24;
+        const endsAtTime = v.auctionEndTime || Date.now() + 1000 * 60 * 30;
 
         const r = raw.ratings || {};
         const extR = r.exterior || r.exteriorRating || 0;
@@ -671,7 +671,63 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   const mechanical = rawDetails?.mechanicalDetails || {};
   const tyre = rawDetails?.tyreDetails || {};
   const interior = rawDetails?.interiorDetails || {};
-  const exteriorPanels = rawDetails?.exteriorPanelDetails || [];
+
+  const exteriorPanelsOrder = [
+    /* ── Front Side ── */
+    'Front Bonnet Hood',
+    'Front Bumper',
+    'Front Wind Shield',
+
+    /* ── Right Side ── */
+    'Right Side Fender',
+    'Right Side Front Door',
+    'Right Side Front Window',
+    'Right Side Rear Door',
+    'Right Side Quarter Panel',
+    'Right Side Quarter Panel Window',
+    'Right Side A Pillar',
+    'Right Side B Pillar',
+    'Right Side C Pillar',
+    'Right Side Running Board',
+    'Right Side Mirror',
+
+    /* ── Left Side ── */
+    'Left Side Fender',
+    'Left Side Front Door',
+    'Left Side Rear Door',
+    'Left Side Quarter Panel',
+    'Left Side Quarter Panel Window',
+    'Left Side A Pillar',
+    'Left Side B Pillar',
+    'Left Side C Pillar',
+    'Left Side Running Board',
+    'Left Side Mirror',
+
+    /* ── Other (Rear, Roof, Structure & Identification) ── */
+    'Trunk Door (Dicky)',
+    'Rear Bumper',
+    'Rear Wind Shield',
+    'Roof Top',
+    'Chassis Embossing',
+    'VIN Plate',
+    'Under Body Damages',
+  ];
+
+  const sortExteriorPanels = (panels: any[]) => {
+    if (!panels || !Array.isArray(panels)) return [];
+    return [...panels].sort((a, b) => {
+      const nameA = (a.panelName || a.name || '').trim();
+      const nameB = (b.panelName || b.name || '').trim();
+      const idxA = exteriorPanelsOrder.indexOf(nameA);
+      const idxB = exteriorPanelsOrder.indexOf(nameB);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return nameA.localeCompare(nameB);
+    });
+  };
+
+  const exteriorPanels = sortExteriorPanels(rawDetails?.exteriorPanelDetails || []);
 
   const findMatchingPhoto = (queryKeys: string[]): string | null => {
     const allMedia = [...(rawDetails?.inspectionPhotos || []), ...(rawDetails?.inspectionVideos || [])];
@@ -986,8 +1042,8 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   const mandatoryExteriorSlots = [
     { keys: ['FRONT_VIEW', 'FRONT SIDE IMAGE', 'FRONT_VIEW_IMAGE'], label: 'FRONT SIDE IMAGE' },
     { keys: ['RIGHT_FRONT_VIEW', 'RIGHT SIDE IMAGE', 'RIGHT_FRONT_VIEW_IMAGE'], label: 'RIGHT SIDE IMAGE' },
-    { keys: ['REAR_VIEW', 'REAR SIDE IMAGE', 'REAR_VIEW_IMAGE'], label: 'REAR SIDE IMAGE' },
     { keys: ['LEFT_FRONT_VIEW', 'LEFT SIDE IMAGE', 'LEFT_FRONT_VIEW_IMAGE'], label: 'LEFT SIDE IMAGE' },
+    { keys: ['REAR_VIEW', 'REAR SIDE IMAGE', 'REAR_VIEW_IMAGE'], label: 'REAR SIDE IMAGE' },
     { keys: ['ROOF_VIEW', 'ROOF TOP IMAGE', 'ROOF_VIEW_IMAGE'], label: 'ROOF TOP IMAGE' },
   ];
 

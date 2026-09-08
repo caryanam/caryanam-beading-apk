@@ -158,7 +158,7 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
   const handleGoLive = async (id: number) => {
     setGoLiveLoading(id);
     try {
-      const duration = activeTab === 'freelancer' ? 15 : 10;
+      const duration = activeTab === 'freelancer' ? 15 : 30;
       showToast({ message: `Launching live ${duration}-minute auction room...`, type: 'info' });
       const res = await adminService.startLiveAuction(id, duration);
       if (res.success) {
@@ -481,14 +481,14 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
                             <Text style={[styles.specLabel, { color: colors.mutedForeground }]}>TIMER</Text>
                             <Text style={[styles.specVal, {
                               color: isLive
-                                ? ((v.auctionEndTime || Date.now() + 600000) - Date.now() <= 120000 ? '#F43F5E' : '#FFC700')
+                                ? ((v.auctionEndTime || Date.now() + (activeTab === 'freelancer' || v.sourceType === 'FREELANCER' ? 15 : 30) * 60000) - Date.now() <= 120000 ? '#F43F5E' : '#FFC700')
                                 : colors.foreground,
                             }]}>
                               {isLive
-                                ? timeLeft(v.auctionEndTime || Date.now() + 600000)
+                                ? timeLeft(v.auctionEndTime || Date.now() + (activeTab === 'freelancer' || v.sourceType === 'FREELANCER' ? 15 : 30) * 60000)
                                 : isSold || isEnded
                                   ? 'Completed'
-                                  : '10m (Ready)'}
+                                  : (activeTab === 'freelancer' || v.sourceType === 'FREELANCER' ? '15m (Ready)' : '30m (Ready)')}
                             </Text>
                           </View>
                         </View>
