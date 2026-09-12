@@ -125,7 +125,9 @@ export const dealerService = {
     return res.data;
   },
 
-  // Download & open dealer inspection PDF report (without inspector or customer contact details)
+  // Download dealer inspection PDF report
+  // Android: saved to Downloads folder via system DownloadManager (tap notification to open)
+  // iOS: opens in document preview
   async downloadDealerPdf(id: number) {
     const sessionData = await AsyncStorage.getItem('user_session');
     const session = sessionData ? JSON.parse(sessionData) : null;
@@ -138,57 +140,55 @@ export const dealerService = {
     const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/dealer/inspection/${id}/pdf`;
     const filename = `Inspection_Report_${id}.pdf`;
 
-    const docDir = ReactNativeBlobUtil.fs.dirs.DocumentDir;
-    const targetPath = `${docDir}/${filename}`;
+    if (Platform.OS === 'android') {
+      const downloadPath = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`;
+      try {
+        if (await ReactNativeBlobUtil.fs.exists(downloadPath)) {
+          await ReactNativeBlobUtil.fs.unlink(downloadPath);
+        }
+      } catch { /* ignore */ }
 
-    try {
-      const exists = await ReactNativeBlobUtil.fs.exists(targetPath);
-      if (exists) {
-        await ReactNativeBlobUtil.fs.unlink(targetPath);
-      }
-    } catch {
-      // ignore
-    }
-
-    const configOptions = Platform.OS === 'android'
-      ? {
-        fileCache: true,
-        path: targetPath,
-        appendExt: 'pdf',
+      await ReactNativeBlobUtil.config({
+        fileCache: false,
         addAndroidDownloads: {
           useDownloadManager: true,
           notification: true,
-          path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
-          description: `Inspection Report #${id}`,
+          path: downloadPath,
           title: filename,
+          description: `Inspection Report #${id}`,
           mime: 'application/pdf',
           mediaScannable: true,
         },
-      }
-      : {
-        fileCache: true,
-        path: targetPath,
-        appendExt: 'pdf',
-      };
+      }).fetch('GET', url, {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/pdf',
+      });
 
-    const res = await ReactNativeBlobUtil.config(configOptions).fetch('GET', url, {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/pdf',
-    });
-
-    if (Platform.OS === 'android') {
-      try {
-        await ReactNativeBlobUtil.fs.scanFile([{ path: targetPath, mime: 'application/pdf' }]);
-      } catch {
-        // ignore
-      }
-      try {
-        await ReactNativeBlobUtil.android.actionViewIntent(targetPath, 'application/pdf');
-      } catch (e: any) {
-        console.warn('Could not launch PDF viewer intent:', e);
-      }
+      return downloadPath;
     } else {
-      ReactNativeBlobUtil.ios.openDocument(res.data);
+      const cacheDir = ReactNativeBlobUtil.fs.dirs.CacheDir;
+      const filePath = `${cacheDir}/${filename}`;
+      try {
+        if (await ReactNativeBlobUtil.fs.exists(filePath)) {
+          await ReactNativeBlobUtil.fs.unlink(filePath);
+        }
+      } catch { /* ignore */ }
+
+      const res = await ReactNativeBlobUtil.config({
+        fileCache: true,
+        path: filePath,
+        appendExt: 'pdf',
+      }).fetch('GET', url, {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/pdf',
+      });
+
+      try {
+        await ReactNativeBlobUtil.ios.previewDocument(res.path());
+      } catch (e: any) {
+        console.warn('Could not preview iOS document:', e);
+      }
+      return res.path();
     }
   },
-};
+};

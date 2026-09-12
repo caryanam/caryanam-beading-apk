@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- CacheDir: used for PDF downloads (react-native-blob-util CacheDir) -->
+    <cache-path name="cache" path="." />
+    <!-- Internal app files directory (DocumentDir) -->
+    <files-path name="files" path="." />
+    <!-- External Downloads directory (DownloadDir) -->
+    <external-files-path name="external_files" path="." />
+    <external-path name="external_storage" path="." />
+</paths>

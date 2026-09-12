@@ -60,7 +60,9 @@ export const inspectorService = {
     return res.data;
   },
 
-  // Download & open the inspection PDF report
+  // Download the inspection PDF report
+  // Android: saved to Downloads folder via system DownloadManager (tap notification to open)
+  // iOS: opens in document preview
   async downloadPdf(id: number) {
     const sessionData = await AsyncStorage.getItem('user_session');
     const session = sessionData ? JSON.parse(sessionData) : null;
@@ -73,80 +75,73 @@ export const inspectorService = {
     const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/inspector/inspection/${id}/pdf`;
     const filename = `Inspection_Report_${id}.pdf`;
 
-    // Always use DocumentDir to ensure file system permissions on both Android and iOS
-    const docDir = ReactNativeBlobUtil.fs.dirs.DocumentDir;
-    const filePath = `${docDir}/${filename}`;
+    if (Platform.OS === 'android') {
+      // Use Android DownloadManager — saves to Downloads folder, shows system notification.
+      // User taps the notification to open the PDF. No actionViewIntent = no crash.
+      const downloadPath = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`;
+      // Remove stale file first
+      try {
+        if (await ReactNativeBlobUtil.fs.exists(downloadPath)) {
+          await ReactNativeBlobUtil.fs.unlink(downloadPath);
+        }
+      } catch { /* ignore */ }
 
-    // Clean up existing file if present
-    try {
-      const exists = await ReactNativeBlobUtil.fs.exists(filePath);
-      if (exists) {
-        await ReactNativeBlobUtil.fs.unlink(filePath);
-      }
-    } catch {
-      // ignore unlink failure
-    }
-
-    const config = Platform.OS === 'android'
-      ? {
-        fileCache: true,
-        path: filePath,
-        appendExt: 'pdf',
+      await ReactNativeBlobUtil.config({
+        fileCache: false,
         addAndroidDownloads: {
           useDownloadManager: true,
           notification: true,
-          path: `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${filename}`,
-          description: `Inspection Report #${id}`,
+          path: downloadPath,
           title: filename,
+          description: `Inspection Report #${id}`,
           mime: 'application/pdf',
           mediaScannable: true,
         },
-      }
-      : {
+      }).fetch('GET', url, {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/pdf',
+      });
+
+      return downloadPath;
+    } else {
+      // iOS: download to cache and preview
+      const cacheDir = ReactNativeBlobUtil.fs.dirs.CacheDir;
+      const filePath = `${cacheDir}/${filename}`;
+      try {
+        if (await ReactNativeBlobUtil.fs.exists(filePath)) {
+          await ReactNativeBlobUtil.fs.unlink(filePath);
+        }
+      } catch { /* ignore */ }
+
+      const res = await ReactNativeBlobUtil.config({
         fileCache: true,
         path: filePath,
         appendExt: 'pdf',
-      };
+      }).fetch('GET', url, {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/pdf',
+      });
 
-    const res = await ReactNativeBlobUtil.config(config).fetch('GET', url, {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/pdf',
-    });
-
-    const status = res.info().status;
-    if (status === 200) {
-      const targetPath = res.path() || filePath;
-      if (Platform.OS === 'android') {
+      const status = res.info().status;
+      if (status === 200) {
         try {
-          await ReactNativeBlobUtil.fs.scanFile([{ path: targetPath, mime: 'application/pdf' }]);
-        } catch {
-          // ignore scanFile failure
-        }
-        try {
-          await ReactNativeBlobUtil.android.actionViewIntent(targetPath, 'application/pdf');
-        } catch (e: any) {
-          console.warn('Could not launch PDF viewer intent:', e);
-        }
-      } else {
-        try {
-          await ReactNativeBlobUtil.ios.previewDocument(targetPath);
+          await ReactNativeBlobUtil.ios.previewDocument(res.path());
         } catch (e: any) {
           console.warn('Could not preview iOS document:', e);
         }
+        return res.path();
+      } else {
+        let errorMsg = `Failed with HTTP status ${status}`;
+        try {
+          const rawText = await res.text();
+          const parsed = JSON.parse(rawText);
+          if (parsed?.message) errorMsg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(errorMsg);
       }
-      return targetPath;
-    } else {
-      let errorMsg = `Failed with HTTP status ${status}`;
-      try {
-        const rawText = await res.text();
-        const parsed = JSON.parse(rawText);
-        if (parsed?.message) errorMsg = parsed.message;
-      } catch {
-        // Fallback to errorMsg
-      }
-      throw new Error(errorMsg);
     }
   },
+
 
   // Get inspector stats directly
   async getStats() {
