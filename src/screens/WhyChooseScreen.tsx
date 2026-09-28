@@ -38,7 +38,7 @@ export const WhyChooseScreen: React.FC = () => {
             <Sparkles size={14} color="#FFC700" style={{ marginRight: 6 }} />
             <Text style={styles.badgeText}>Core Platform Advantages</Text>
           </View>
-          <Text style={[styles.title, { color: colors.foreground }]}>Why Choose Caryanam Bidding</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Why Choose Caryanam Live</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Engineered For High-Fidelity Automobile Liquidation
           </Text>

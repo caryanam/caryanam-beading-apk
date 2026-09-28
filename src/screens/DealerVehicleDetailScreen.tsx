@@ -124,7 +124,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   const [cardVideoProgress, setCardVideoProgress] = useState<number>(0);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [zoomScale, setZoomScale] = useState<number>(1.0);
-  const [activeTab, setActiveTab] = useState('car_documents');
+  const [activeTab, setActiveTab] = useState('exterior');
   const [dealerReplyText, setDealerReplyText] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [session, setSession] = useState<any>(null);
@@ -824,12 +824,13 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
   }, [rawDetails]);
 
   const detailSteps = [
-    { id: 'car_documents', title: 'Car Documents & Legal', subtitle: 'RTO, NOC, Fitness, RC & Tax status' },
+   
     { id: 'exterior', title: `Exterior Body (${exteriorPanels.length})`, subtitle: '32-Point panel condition report' },
     { id: 'mechanical', title: 'Mechanical Health', subtitle: 'Engine, transmission & fluids' },
     { id: 'tyres', title: 'Tyres & Toolkit', subtitle: 'Tread depth % & emergency tools' },
     { id: 'interior', title: 'Interior Cabin', subtitle: 'Electricals, trim & remarks' },
     { id: 'videos', title: `Videos & Sound (${videoList.length})`, subtitle: 'Engine noise & video clips' },
+     { id: 'car_documents', title: 'Car Documents & Legal', subtitle: 'RTO, NOC, Fitness, RC & Tax status' },
   ];
 
   const renderPhotoSlot = (
@@ -1163,8 +1164,8 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
       >
         <View style={styles.contentBody}>
           {/* SECTION 1: TOP SIDE - Basic Information Overview & Specifications */}
-          <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={styles.panelHeaderRow}>
+          <View style={[styles.panel, styles.overviewPanel, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <View style={[styles.panelHeaderRow, styles.overviewPanelHeaderRow]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.panelTitle, { color: colors.foreground }]}>Vehicle Overview & Basic Information</Text>
                 <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
@@ -1173,13 +1174,17 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
               </View>
               {renderScoreBadge(vehicle.score || 88)}
             </View>
-            <View style={styles.specsGrid}>
+            <View style={[styles.specsGrid, styles.overviewSpecsGrid]}>
               {specs.map((s, idx) => {
                 const IconComp = s.icon;
                 return (
-                  <View key={idx} style={[styles.specCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
-                    <IconComp size={14} color="#FFC700" />
-                    <Text style={[styles.specLabelText, { color: colors.mutedForeground }]}>{s.label}</Text>
+                  <View key={idx} style={[styles.specCell, styles.overviewSpecCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
+                    <View style={styles.specLabelRow}>
+                      <IconComp size={12} color="#FFC700" />
+                      <Text style={[styles.specLabelText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {s.label}
+                      </Text>
+                    </View>
                     <Text style={[styles.specValueText, { color: colors.foreground }]} numberOfLines={1}>
                       {s.value}
                     </Text>
@@ -1383,7 +1388,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
                     </TouchableOpacity>
                   </>
                 )}
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   onPress={handleDownloadPdf}
                   disabled={downloadingPdf}
                   style={{
@@ -1408,7 +1413,7 @@ export const DealerVehicleDetailScreen: React.FC<DealerVehicleDetailScreenProps>
                       <Text style={{ fontSize: 12, fontWeight: '900', color: '#FFC700' }}>Download Inspection PDF Report</Text>
                     </>
                   )}
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
             )}
           </View>
@@ -2144,7 +2149,9 @@ const styles = StyleSheet.create({
   stepContent: { gap: 14 },
 
   panel: { borderWidth: 1, borderRadius: 20, padding: 16 },
+  overviewPanel: { padding: 12, borderRadius: 16 },
   panelHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
+  overviewPanelHeaderRow: { gap: 6, marginBottom: 8 },
   panelTitle: { fontSize: 14, fontWeight: '900', letterSpacing: -0.2 },
   panelSub: { fontSize: 11, fontWeight: '600', marginTop: 3 },
   scoreChip: { backgroundColor: '#FFC700', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
@@ -2153,9 +2160,12 @@ const styles = StyleSheet.create({
   emptyPanelText: { fontSize: 11, fontWeight: '700' },
 
   specsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  specCell: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderRadius: 12, padding: 10, gap: 4 },
-  specLabelText: { fontSize: 9.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 3 },
-  specValueText: { fontSize: 12.5, fontWeight: '900' },
+  overviewSpecsGrid: { gap: 6, marginTop: 8 },
+  specCell: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderRadius: 10, padding: 8, gap: 3 },
+  overviewSpecCell: { borderRadius: 8, padding: 6, gap: 2 },
+  specLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  specLabelText: { flex: 1, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
+  specValueText: { fontSize: 11.5, fontWeight: '900' },
 
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   photoSlotCell: { flexBasis: '100%', width: '100%', borderWidth: 1, borderRadius: 14, padding: 11 },

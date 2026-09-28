@@ -73,6 +73,8 @@ const NavigationContent = () => {
             setInitialRoute('InspectorDashboard');
           } else if (role === 'freelancer') {
             setInitialRoute('FreelancerDashboard');
+          } else if (role === 'dealer') {
+            setInitialRoute('DealerMarketplace');
           } else {
             setInitialRoute('DealerDashboard');
           }
@@ -181,7 +183,7 @@ const NavigationContent = () => {
                 </View>
                 <View style={styles.brandTextWrapper}>
                   <Text style={[styles.headerBrandTitle, { color: colors.foreground }]} numberOfLines={1}>
-                    CARYANAM
+                    CARYANAM LIVE
                   </Text>
                   <Text style={[styles.headerBrandSub, { color: colors.mutedForeground }]} numberOfLines={1} ellipsizeMode="tail">
                     INSPECTION & BIDDING

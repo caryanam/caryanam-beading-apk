@@ -76,7 +76,7 @@ export const ContactScreen: React.FC = () => {
           </View>
           <Text style={[styles.title, { color: colors.foreground }]}>Contact Us</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Get in Touch with the Caryanam Bidding Team
+            Get in Touch with the Caryanam Live Team
           </Text>
         </View>
 

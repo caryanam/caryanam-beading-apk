@@ -16,7 +16,7 @@ export const AboutScreen: React.FC = () => {
             <Sparkles size={14} color="#FFC700" style={{ marginRight: 6 }} />
             <Text style={styles.badgeText}>Established B2B Remarketing Platform</Text>
           </View>
-          <Text style={[styles.title, { color: colors.foreground }]}>About Caryanam Bidding</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>About Caryanam Live</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             India's Premier Used Car Inspection & Live Dealer Auction Infrastructure
           </Text>
@@ -25,7 +25,7 @@ export const AboutScreen: React.FC = () => {
         {/* Narrative Card */}
         <View style={[styles.mainNarrativeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.narrativeText, { color: colors.foreground }]}>
-            Caryanam Bidding is a technology-driven vehicle remarketing and digital evaluation platform connecting certified automobile inspectors, auction managers, and verified pre-owned car dealers across India.
+              Caryanam Live is a technology-driven vehicle remarketing and digital evaluation platform connecting certified automobile inspectors, auction managers, and verified pre-owned car dealers across India.
           </Text>
         </View>
 
@@ -63,7 +63,7 @@ export const AboutScreen: React.FC = () => {
             <Text style={styles.calloutTitle}>Unified B2B Auction Ecosystem</Text>
           </View>
           <Text style={[styles.calloutDesc, { color: colors.foreground }]}>
-            Whether sourcing pre-owned inventory, conducting 140+ point evaluations, or managing live auction rooms, Caryanam Bidding provides a high-fidelity workspace engineered for performance.
+            Whether sourcing pre-owned inventory, conducting 140+ point evaluations, or managing live auction rooms, Caryanam Live provides a high-fidelity workspace engineered for performance.
           </Text>
         </View>
       </View>

@@ -205,7 +205,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               activeOpacity={0.85}
               onPress={() => navigation.navigate('WhyChoose')}
             >
-              <Text style={styles.secondaryBtnText}>Why Caryanam Bidding</Text>
+              <Text style={styles.secondaryBtnText}>Why Caryanam Live</Text>
             </TouchableOpacity>
           </View>
         </View>

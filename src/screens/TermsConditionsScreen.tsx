@@ -25,7 +25,7 @@ export const TermsConditionsScreen: React.FC<{ navigation: any }> = ({ navigatio
         {/* Narrative Card */}
         <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.narrativeText, { color: colors.foreground }]}>
-            Caryanam India Pvt. Ltd. operates the Caryanam Bidding App. By using the App, you agree to these Terms.
+            Caryanam India Pvt. Ltd. operates the Caryanam Live App. By using the App, you agree to these Terms.
           </Text>
         </View>
 

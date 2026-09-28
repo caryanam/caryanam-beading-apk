@@ -35,7 +35,7 @@ interface AdminEnquiriesScreenProps {
 }
 
 export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOpenMenu }) => {
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
   const { showToast } = useToast();
   const navigation = useNavigation<AdminNavigationProp>();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
@@ -71,10 +71,10 @@ export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOp
 
   const renderEnquiry = ({ item }: { item: Enquiry }) => {
     const date = new Date(item.createdAt);
-    const isDark = colors.background === '#0D0E12';
+    const isDark = theme === 'dark';
 
     return (
-      <View style={[styles.card, { backgroundColor: isDark ? '#14161C' : '#FFFFFF', borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {/* Glow Effects */}
         {isDark && (
           <>
@@ -112,7 +112,7 @@ export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOp
             <Text style={[styles.infoValue, { color: colors.foreground }]}>{item.phone}</Text>
           </View>
 
-          <View style={[styles.messageContainer, { backgroundColor: isDark ? '#0D0E12' : '#F8FAFC', borderColor: colors.border }]}>
+          <View style={[styles.messageContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={styles.messageHeader}>
               <MessageSquare size={12} color="#FFC700" />
               <Text style={styles.messageHeaderTitle}>ENQUIRY MESSAGE</Text>
@@ -126,12 +126,12 @@ export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOp
     );
   };
 
-  const isDark = colors.background === '#0D0E12';
+  const isDark = theme === 'dark';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       {/* Header */}
-      <View style={[styles.headerBar, { borderBottomColor: colors.border, backgroundColor: isDark ? '#0D0E12' : '#FFFFFF' }]}>
+      <View style={[styles.headerBar, { borderBottomColor: colors.headerBorder, backgroundColor: colors.headerBg }]}>
         <TouchableOpacity onPress={onOpenMenu} style={styles.headerIconBtn}>
           <Menu size={20} color={colors.foreground} />
         </TouchableOpacity>
@@ -153,8 +153,8 @@ export const AdminEnquiriesScreen: React.FC<AdminEnquiriesScreenProps> = ({ onOp
       </View>
 
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: isDark ? '#0D0E12' : '#FFFFFF', borderBottomColor: colors.border }]}>
-        <View style={[styles.searchBar, { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBorder }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
           <Search size={15} color={colors.mutedForeground} />
           <TextInput
             style={[styles.searchInput, { color: colors.foreground }]}

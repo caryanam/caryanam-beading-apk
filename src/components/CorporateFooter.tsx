@@ -13,7 +13,7 @@ export const CorporateFooter: React.FC = () => {
           <Image source={require('../assets/logo.png')} style={styles.footerLogo} resizeMode="cover" />
         </View>
         <View>
-          <Text style={[styles.footerBrandTitle, { color: '#FFFFFF' }]}>Caryanam Bidding</Text>
+          <Text style={[styles.footerBrandTitle, { color: '#FFFFFF' }]}>Caryanam Live</Text>
           <Text style={styles.footerBrandSub}>B2B Used Vehicle Auctions</Text>
         </View>
       </View>
@@ -62,7 +62,7 @@ export const CorporateFooter: React.FC = () => {
           </TouchableOpacity>
         </View>
         <Text style={[styles.copyrightText, { color: '#9CA3AF', marginTop: 4 }]}>Developed by Caryanamindia Pvt Ltd</Text>
-        <Text style={[styles.copyrightText, { color: '#9CA3AF' }]}>© 2026 Caryanam Bidding. All rights reserved.</Text>
+        <Text style={[styles.copyrightText, { color: '#9CA3AF' }]}>© 2026 Caryanam Live. All rights reserved.</Text>
       </View>
     </View>
   );

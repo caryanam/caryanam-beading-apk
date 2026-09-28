@@ -632,7 +632,7 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
               <Text style={styles.guaranteeTitle}>Certified 200-Point Inspection</Text>
             </View>
             <Text style={[styles.guaranteeText, { color: colors.foreground }]}>
-              Every vehicle on Caryanam Bidding is thoroughly evaluated by certified engineers with verified structural, engine, and document reports.
+              Every vehicle on Caryanam Live is thoroughly evaluated by certified engineers with verified structural, engine, and document reports.
             </Text>
           </View>
         </View>

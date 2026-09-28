@@ -25,7 +25,7 @@ export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({ navigation 
         {/* Narrative Card */}
         <View style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.narrativeText, { color: colors.foreground }]}>
-            Caryanam India Pvt. Ltd. ("Caryanam", "we", "our") operates the Caryanam Bidding App. This Privacy Policy explains how we collect and use information when you use our App.
+            Caryanam India Pvt. Ltd. ("Caryanam", "we", "our") operates the Caryanam Live App. This Privacy Policy explains how we collect and use information when you use our App.
           </Text>
         </View>
 
