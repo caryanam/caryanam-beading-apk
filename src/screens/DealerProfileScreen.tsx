@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Menu,
@@ -106,10 +107,37 @@ export const DealerProfileScreen: React.FC<DealerProfileScreenProps> = ({ naviga
   }, [passResendCooldown]);
 
   const handleSaveChanges = async () => {
+    if (mobileNumber && mobileNumber.trim() && !/^[6-9]\d{9}$/.test(mobileNumber.trim())) {
+      showToast({ message: 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.', type: 'error' });
+      return;
+    }
+    if (email && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      showToast({ message: 'Please enter a valid email address.', type: 'error' });
+      return;
+    }
     setSaving(true);
     try {
-      const res = await dealerService.updateProfile({ dealershipName, fullName, mobileNumber, address, area, city });
+      const res = await dealerService.updateProfile({
+        dealershipName,
+        fullName,
+        email: email.trim(),
+        mobileNumber: mobileNumber.trim(),
+        address,
+        area,
+        city,
+      });
       if (res.success) {
+        const session = await authService.getStoredSession();
+        if (session) {
+          const updated = {
+            ...session,
+            email: email.trim() || session.email,
+            mobileNumber: mobileNumber.trim() || session.mobileNumber,
+            name: fullName.trim() || dealershipName.trim() || session.name,
+            dealershipName: dealershipName.trim() || session.dealershipName,
+          };
+          await AsyncStorage.setItem('user_session', JSON.stringify(updated));
+        }
         showToast({ message: 'Dealership profile updated successfully.', type: 'success' });
       } else {
         showToast({ message: res.message || 'Failed to update profile.', type: 'error' });
@@ -393,26 +421,32 @@ export const DealerProfileScreen: React.FC<DealerProfileScreenProps> = ({ naviga
                   />
                 </View>
 
-                <View style={styles.labelRow}>
-                  {inputLabel('Email Address', true)}
-                  <View style={styles.readOnlyPill}>
-                    <Text style={styles.readOnlyPillText}>Read-only</Text>
-                  </View>
-                </View>
+                {inputLabel('Email Address', true)}
                 <View style={styles.inputWrap}>
                   <Mail size={14} color={colors.mutedForeground} />
-                  <TextInput style={inputStyle(false)} value={email} editable={false} />
+                  <TextInput
+                    style={inputStyle(true)}
+                    placeholder="Email Address"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
                 </View>
 
-                <View style={styles.labelRow}>
-                  {inputLabel('Mobile Number', true)}
-                  <View style={styles.readOnlyPill}>
-                    <Text style={styles.readOnlyPillText}>Locked</Text>
-                  </View>
-                </View>
+                {inputLabel('Mobile Number', true)}
                 <View style={styles.inputWrap}>
                   <Phone size={14} color={colors.mutedForeground} />
-                  <TextInput style={inputStyle(false)} value={mobileNumber} editable={false} />
+                  <TextInput
+                    style={inputStyle(true)}
+                    placeholder="10-digit mobile number"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={mobileNumber}
+                    onChangeText={(t) => setMobileNumber(t.replace(/\D/g, '').slice(0, 10))}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
                 </View>
 
                 {inputLabel('Address', true)}

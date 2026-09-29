@@ -61,6 +61,12 @@ export const adminService = {
     return res.data;
   },
 
+  // Make dealer a freelancer (dual role)
+  async makeDealerFreelancer(dealerId: number) {
+    const res = await apiClient.post(`/api/admin/dealer/${dealerId}/make-freelancer`);
+    return res.data;
+  },
+
   // Get all registered inspectors list
   async getRegisteredInspectors() {
     const res = await apiClient.get('/api/admin/inspectors');

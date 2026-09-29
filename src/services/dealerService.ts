@@ -65,10 +65,11 @@ export const dealerService = {
     return res.data;
   },
 
-  // Update dealer profile (dealership info / owner / mobile)
+  // Update dealer profile (dealership info / owner / mobile / email)
   async updateProfile(data: {
     dealershipName?: string;
     fullName?: string;
+    email?: string;
     mobileNumber?: string;
     address?: string;
     area?: string;

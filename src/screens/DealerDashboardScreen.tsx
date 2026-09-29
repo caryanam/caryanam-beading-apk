@@ -53,9 +53,37 @@ const timeLeft = (endsAt?: number): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 };
 
-const mapVehicle = (v: any): any => {
+const getTimerParts = (endsAt?: number) => {
+  if (!endsAt) return { hours: '00', minutes: '00', seconds: '00' };
+  const diff = endsAt - Date.now();
+  if (diff <= 0) return { hours: '00', minutes: '00', seconds: '00' };
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return {
+    hours: String(h).padStart(2, '0'),
+    minutes: String(m).padStart(2, '0'),
+    seconds: String(s).padStart(2, '0'),
+  };
+};
+
+const mapVehicle = (v: any, dealerBids: any[] = []): any => {
   const basePrice = v.suggestedPrice || 350000;
   const highestBid = v.currentHighestBid && v.currentHighestBid > 0 ? v.currentHighestBid : 0;
+
+  const bidRecord = (dealerBids || []).find(
+    (b: any) => String(b.vehicleId || b.id) === String(v.inspectionId || v.id)
+  );
+  let userBidStatus: 'top' | 'outbid' | 'none' = 'none';
+  if (bidRecord) {
+    const myBid = Number(bidRecord.myBid || 0);
+    const topBidVal = Number(highestBid || bidRecord.highestBid || 0);
+    if (myBid > 0 && myBid >= topBidVal) {
+      userBidStatus = 'top';
+    } else if (myBid > 0 && myBid < topBidVal) {
+      userBidStatus = 'outbid';
+    }
+  }
 
   let fuel = 'Petrol';
   const f = (v.fuel || '').toLowerCase();
@@ -91,6 +119,7 @@ const mapVehicle = (v: any): any => {
     auction: isLive ? 'live' : (isSold ? 'sold out' : 'scheduled'),
     endsAt: v.auctionEndTime || undefined,
     regNo: v.vehicleNumber,
+    userBidStatus,
   };
 };
 
@@ -133,10 +162,15 @@ const DashboardVehicleCard: React.FC<DashboardVehicleCardProps> = ({ v, navigati
   const isEnded = v.auction === 'ended';
   const isSoldOut = v.auction === 'sold out';
   const [timeRemaining, setTimeRemaining] = useState(timeLeft(v.endsAt));
+  const [timerParts, setTimerParts] = useState(getTimerParts(v.endsAt));
 
   useEffect(() => {
     setTimeRemaining(timeLeft(v.endsAt));
-    const id = setInterval(() => setTimeRemaining(timeLeft(v.endsAt)), 1000);
+    setTimerParts(getTimerParts(v.endsAt));
+    const id = setInterval(() => {
+      setTimeRemaining(timeLeft(v.endsAt));
+      setTimerParts(getTimerParts(v.endsAt));
+    }, 1000);
     return () => clearInterval(id);
   }, [v.endsAt]);
 
@@ -246,13 +280,92 @@ const DashboardVehicleCard: React.FC<DashboardVehicleCardProps> = ({ v, navigati
               </Text>
             </View>
             <View style={styles.invCtaWrap}>
-              {isLive ? (
-                <View style={styles.invBidNowBtn}>
-                  <Text style={styles.invBidNowText}>BID NOW</Text>
+              {(() => {
+                const userBidStatus = v.userBidStatus || 'none';
+                return isLive ? (() => {
+                  const isTopBid = userBidStatus === 'top';
+                  const isOutbid = userBidStatus === 'outbid';
+
+                const pillBg = isTopBid
+                  ? (isDark ? 'rgba(6,78,59,0.7)' : '#ECFDF5')
+                  : isOutbid
+                  ? (isDark ? 'rgba(136,19,55,0.7)' : '#FFF1F2')
+                  : (isDark ? '#1E293B' : '#F1F5F9');
+
+                const pillBorderColor = isTopBid
+                  ? (isDark ? 'rgba(4,120,87,0.6)' : '#A7F3D0')
+                  : isOutbid
+                  ? (isDark ? 'rgba(190,18,60,0.6)' : '#FECDD3')
+                  : (isDark ? '#334155' : '#E2E8F0');
+
+                const circleBg = isTopBid
+                  ? (isDark ? '#022C22' : '#FFFFFF')
+                  : isOutbid
+                  ? (isDark ? '#4C0519' : '#FFFFFF')
+                  : (isDark ? '#0F172A' : '#FFFFFF');
+
+                const circleBorder = isTopBid
+                  ? (isDark ? 'rgba(5,150,105,0.4)' : '#A7F3D0')
+                  : isOutbid
+                  ? (isDark ? 'rgba(225,29,72,0.4)' : '#FECDD3')
+                  : (isDark ? '#334155' : '#E2E8F0');
+
+                const digitColor = isTopBid
+                  ? (isDark ? '#34D399' : '#059669')
+                  : isOutbid
+                  ? (isDark ? '#FB7185' : '#E11D48')
+                  : (isDark ? '#F8FAFC' : '#0F172A');
+
+                const unitColor = isTopBid
+                  ? (isDark ? '#6EE7B7' : '#10B981')
+                  : isOutbid
+                  ? (isDark ? '#FDA4AF' : '#F43F5E')
+                  : (isDark ? '#94A3B8' : '#64748B');
+
+                const colonColor = isTopBid
+                  ? (isDark ? '#34D399' : '#059669')
+                  : isOutbid
+                  ? (isDark ? '#FB7185' : '#E11D48')
+                  : (isDark ? '#64748B' : '#94A3B8');
+
+                return (
+                  <View style={[styles.timerPill, { backgroundColor: pillBg, borderColor: pillBorderColor }]}>
+                    {/* Hours */}
+                    <View style={[styles.timerCircle, { backgroundColor: circleBg, borderColor: circleBorder }]}>
+                      <Text style={[styles.timerDigit, { color: digitColor }]}>{timerParts.hours}</Text>
+                      <Text style={[styles.timerUnit, { color: unitColor }]}>HR</Text>
+                    </View>
+
+                    <Text style={[styles.timerColon, { color: colonColor }]}>:</Text>
+
+                    {/* Minutes */}
+                    <View style={[styles.timerCircle, { backgroundColor: circleBg, borderColor: circleBorder }]}>
+                      <Text style={[styles.timerDigit, { color: digitColor }]}>{timerParts.minutes}</Text>
+                      <Text style={[styles.timerUnit, { color: unitColor }]}>MIN</Text>
+                    </View>
+
+                    <Text style={[styles.timerColon, { color: colonColor }]}>:</Text>
+
+                    {/* Seconds */}
+                    <View style={[styles.timerCircle, { backgroundColor: circleBg, borderColor: circleBorder }]}>
+                      <Text style={[styles.timerDigit, { color: digitColor }]}>{timerParts.seconds}</Text>
+                      <Text style={[styles.timerUnit, { color: unitColor }]}>SEC</Text>
+                    </View>
+                  </View>
+                );
+              })() : isComingSoon ? (
+                <View style={[styles.invSoonChip, { backgroundColor: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.3)' }]}>
+                  <Text style={[styles.invSoonChipText, { color: '#818CF8' }]}>COMING SOON</Text>
                 </View>
               ) : isSoldOut ? (
-                <View style={styles.invSoldChip}>
-                  <Text style={styles.invSoldText}>SOLD OUT</Text>
+                <View style={[styles.invSoldChip, userBidStatus === 'top' && { backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgba(16,185,129,0.35)' }]}>
+                  <Text style={[styles.invSoldText, userBidStatus === 'top' && { color: '#10B981' }]}>
+                    {userBidStatus === 'top' ? 'WON' : 'SOLD OUT'}
+                  </Text>
+                </View>
+              ) : userBidStatus === 'top' ? (
+                <View style={[styles.invSoldChip, { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: 'rgba(245,158,11,0.35)' }]}>
+                  <Text style={[styles.invSoldText, { color: '#F59E0B' }]}>NEGOTIABLE</Text>
                 </View>
               ) : isEnded ? (
                 <View style={styles.invEndedChip}>
@@ -265,8 +378,9 @@ const DashboardVehicleCard: React.FC<DashboardVehicleCardProps> = ({ v, navigati
                   )}
                   <ChevronRight size={13} color="#FFC700" />
                 </View>
-              )}
-            </View>
+              );
+            })()}
+          </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -283,6 +397,7 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
 
 // Data States
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [dealerBids, setDealerBids] = useState<any[]>([]);
   const [bidsCount, setBidsCount] = useState(0);
   const [favCount, setFavCount] = useState(0);
   const [favIds, setFavIds] = useState<Set<number>>(new Set());
@@ -309,7 +424,10 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
         setFavCount(wishlistRes.data.length);
         setFavIds(new Set(wishlistRes.data.map((w: any) => w.inspectionId || w.id)));
       }
-      if (bidsRes.success && bidsRes.data) setBidsCount(bidsRes.data.length);
+      if (bidsRes.success && bidsRes.data) {
+        setBidsCount(bidsRes.data.length);
+        setDealerBids(bidsRes.data);
+      }
       if (profileRes.success && profileRes.data) {
         setWonBidsCount((profileRes.data as any).wonBidsCount || 0);
         setDealershipName((profileRes.data as any).dealershipName || '');
@@ -375,7 +493,7 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
   const featuredHighestBid = featured?.currentHighestBid || 0;
   const featuredPrice = featured?.suggestedPrice || 0;
 
-  const mappedVehicles = useMemo(() => vehicles.map(mapVehicle), [vehicles]);
+  const mappedVehicles = useMemo(() => vehicles.map((item) => mapVehicle(item, dealerBids)), [vehicles, dealerBids]);
   const recommended = useMemo(() => mappedVehicles.slice(0, 3), [mappedVehicles]);
 
   const cardBg = isDark ? '#12141C' : '#FFFFFF';
@@ -753,10 +871,18 @@ featuredTimerValue: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', marginT
   invBidNowText: { color: '#0D0E12', fontSize: 10.5, fontWeight: '900', letterSpacing: 0.3 },
   invSoldChip: { backgroundColor: 'rgba(244,63,94,0.15)', borderWidth: 1, borderColor: 'rgba(244,63,94,0.35)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   invSoldText: { color: '#F43F5E', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
+  invSoonChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  invSoonChipText: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.3 },
   invEndedChip: { backgroundColor: 'rgba(148,163,184,0.12)', borderWidth: 1, borderColor: 'rgba(148,163,184,0.3)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   invEndedText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
   invScheduledPill: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   invScheduledText: { color: '#FFC700', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.3 },
+
+  timerPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 7, borderRadius: 24, borderWidth: 1 },
+  timerCircle: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  timerDigit: { fontSize: 10.5, fontWeight: '900', lineHeight: 12 },
+  timerUnit: { fontSize: 6.5, fontWeight: '800', textTransform: 'uppercase', lineHeight: 7.5, marginTop: 1 },
+  timerColon: { fontSize: 11, fontWeight: '900', lineHeight: 12 },
 
   shortcutList: { gap: 10 },
   shortcutItem: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, padding: 12 },

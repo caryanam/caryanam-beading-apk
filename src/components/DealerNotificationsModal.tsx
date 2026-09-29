@@ -120,14 +120,22 @@ export const DealerNotificationsModal: React.FC<DealerNotificationsModalProps> =
     try {
 
 
+      const sanitizeText = (text?: string): string => {
+        if (!text) return '';
+        return text
+          .replace(/\s*\([A-Za-z0-9\-\s]+\)/g, '')
+          .replace(/(?:vehicle|veh)\s+[A-Za-z0-9\-]{4,15}/gi, 'Vehicle')
+          .trim();
+      };
+
       let list: DealerNotificationItem[] = [];
       const notifRes = await dealerService.getDealerNotifications();
       if (notifRes.success && notifRes.data && notifRes.data.length > 0) {
         list = notifRes.data.map((n: any) => ({
           id: n.id,
           rawId: n.id,
-          title: n.title,
-          meta: n.message,
+          title: sanitizeText(n.title),
+          meta: sanitizeText(n.message),
           time: formatIndianDateTime(n.createdAt),
           status: n.type,
           link: n.inspectionId ? String(n.inspectionId) : null,
@@ -143,14 +151,14 @@ export const DealerNotificationsModal: React.FC<DealerNotificationsModalProps> =
             const vStatus = ins.vehicleStatus || 'READY_FOR_AUCTION';
 
             if (vStatus === 'AUCTION_LIVE' || vStatus === 'LIVE') {
-              notifTitle = `ðŸ”¥ Live Auction: ${carName}`;
-              notifMeta = `Bidding is LIVE now for vehicle ${ins.vehicleNumber}! Highest bid: â‚¹${ins.currentHighestBid || ins.suggestedPrice || 0}`;
+              notifTitle = `🔥 Live Auction: ${carName}`;
+              notifMeta = `Bidding is LIVE now for ${carName}! Highest bid: ₹${ins.currentHighestBid || ins.suggestedPrice || 0}`;
             } else if (vStatus === 'AUCTION_COMPLETED' || vStatus === 'ENDED' || vStatus === 'SOLD OUT' || vStatus === 'SOLD_OUT' || vStatus === 'COMPLETED') {
               notifTitle = `Auction Closed: ${carName}`;
-              notifMeta = `Bidding has completed for vehicle ${ins.vehicleNumber}.`;
+              notifMeta = `Bidding has completed for ${carName}.`;
             } else {
-              notifTitle = `ðŸš— New Vehicle: ${carName}`;
-              notifMeta = `Vehicle ${ins.vehicleNumber} added to marketplace. Suggested price: â‚¹${ins.suggestedPrice || 0}`;
+              notifTitle = `🚗 New Vehicle: ${carName}`;
+              notifMeta = `${carName} added to marketplace. Suggested price: ₹${ins.suggestedPrice || 0}`;
             }
 
             return {

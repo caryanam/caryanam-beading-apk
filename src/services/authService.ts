@@ -21,6 +21,12 @@ export interface UserSession {
   token: string;
 }
 
+export interface LoginResult {
+  hasDualRole: boolean;
+  session?: UserSession;
+  authData?: any;
+}
+
 export const authService = {
   // Login user (Dealer / Inspector / Admin / Freelancer)
   async deleteAccount(emailOrMobile: string, password: string): Promise<any> {
@@ -35,7 +41,22 @@ export const authService = {
     }
   },
 
-  async login(email: string, password: string): Promise<UserSession> {
+  async saveSessionWithRole(authData: any, chosenRole: 'dealer' | 'freelancer' | 'admin' | 'inspector'): Promise<UserSession> {
+    const session: UserSession = {
+      id: authData.id,
+      name: authData.fullName || authData.dealershipName || (authData.email ? authData.email.split('@')[0] : authData.mobileNumber || 'User'),
+      email: authData.email || '',
+      role: chosenRole as any,
+      dealershipName: authData.dealershipName || authData.fullName,
+      mobileNumber: authData.mobileNumber,
+      token: authData.token,
+    };
+
+    await AsyncStorage.setItem('user_session', JSON.stringify(session));
+    return session;
+  },
+
+  async login(email: string, password: string): Promise<LoginResult> {
     try {
       const response = await publicClient.post('/api/auth/login', {
         email,
@@ -45,18 +66,23 @@ export const authService = {
       const resData = response.data;
       if (resData.success && resData.data) {
         const authData = resData.data;
-        const session: UserSession = {
-          id: authData.id,
-          name: authData.fullName || authData.dealershipName || email.split('@')[0],
-          email: authData.email || email,
-          role: (authData.role || 'DEALER').toLowerCase() as any,
-          dealershipName: authData.dealershipName || authData.fullName,
-          mobileNumber: authData.mobileNumber,
-          token: authData.token,
-        };
+        const hasDual = Boolean(
+          authData.hasDualRole === true ||
+          (Array.isArray(authData.roles) && authData.roles.length > 1)
+        );
 
-        await AsyncStorage.setItem('user_session', JSON.stringify(session));
-        return session;
+        if (hasDual) {
+          return {
+            hasDualRole: true,
+            authData,
+          };
+        }
+
+        const session = await this.saveSessionWithRole(authData, (authData.role || 'DEALER').toLowerCase() as any);
+        return {
+          hasDualRole: false,
+          session,
+        };
       } else {
         throw new Error(resData.message || 'Invalid email or password');
       }
@@ -73,7 +99,7 @@ export const authService = {
   async registerDealer(data: {
     dealershipName: string;
     ownerName: string;
-    email: string;
+    email?: string;
     mobile: string;
     password: string;
     address?: string;

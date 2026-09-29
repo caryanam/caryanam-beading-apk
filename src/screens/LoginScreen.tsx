@@ -12,7 +12,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, KeyRound, X, CheckCircle2, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, KeyRound, X, CheckCircle2, ShieldCheck, Store, Car, Sparkles, ChevronRight, ArrowRight } from 'lucide-react-native';
 import { authService } from '../services/authService';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -24,10 +24,14 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const { theme, colors } = useTheme();
   const { showToast } = useToast();
+  const isDark = theme === 'dark';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Dual Role Modal State
+  const [dualRoleAuthData, setDualRoleAuthData] = useState<any | null>(null);
 
   // Forgot Password States
   const [forgotModalVisible, setForgotModalVisible] = useState(false);
@@ -60,6 +64,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
+  const handleSelectDualRole = async (chosenRole: 'dealer' | 'freelancer') => {
+    if (!dualRoleAuthData) return;
+    try {
+      const session = await authService.saveSessionWithRole(dualRoleAuthData, chosenRole);
+      setDualRoleAuthData(null);
+      showToast({ message: `Welcome back, ${session.name}!`, type: 'success' });
+      if (chosenRole === 'freelancer') {
+        navigation.navigate('FreelancerDashboard');
+      } else {
+        navigation.navigate('DealerMarketplace');
+      }
+    } catch (err: any) {
+      showToast({ message: err.message || 'Failed to select role.', type: 'error' });
+    }
+  };
+
   const handleLogin = async () => {
     const input = email.trim();
     if (!input) {
@@ -87,7 +107,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const session = await authService.login(input, password);
+      const result = await authService.login(input, password);
+      if (result.hasDualRole && result.authData) {
+        setDualRoleAuthData(result.authData);
+        return;
+      }
+      const session = result.session!;
       showToast({ message: `Welcome back, ${session.name}!`, type: 'success' });
       if (session.role === 'admin') {
         navigation.navigate('AdminDashboard');
@@ -517,6 +542,123 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Dual Role Selection Modal Popup */}
+      <Modal
+        visible={!!dualRoleAuthData}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDualRoleAuthData(null)}
+      >
+        <View style={styles.dualModalOverlay}>
+          <View style={[styles.dualModalContent, { backgroundColor: isDark ? '#141622' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#E2E8F0' }]}>
+            
+            {/* Modal Header */}
+            <View style={styles.dualModalHeader}>
+              <View style={styles.dualModalHeaderLeft}>
+                <View style={styles.dualModalSparkleIcon}>
+                  <Sparkles size={22} color="#FFC700" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dualModalTitle, { color: colors.foreground }]}>Select Workspace</Text>
+                  <Text style={[styles.dualModalSubtitle, { color: colors.mutedForeground }]}>
+                    Hello <Text style={{ color: '#FFC700', fontWeight: '800' }}>{dualRoleAuthData?.fullName || 'User'}</Text>! Choose portal to continue:
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.modalCloseBtn, { backgroundColor: isDark ? '#1E2230' : '#F1F5F9' }]}
+                onPress={() => setDualRoleAuthData(null)}
+              >
+                <X size={18} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* 2 Portal Options */}
+            <View style={{ gap: 14, marginVertical: 16 }}>
+              
+              {/* Dealer Option */}
+              <TouchableOpacity
+                style={[
+                  styles.dualOptionCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,199,0,0.06)' : '#FFFDF5',
+                    borderColor: 'rgba(255,199,0,0.35)',
+                  },
+                ]}
+                onPress={() => handleSelectDualRole('dealer')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.dualOptionTop}>
+                  <View style={[styles.dualOptionIconBox, { backgroundColor: '#FFC700' }]}>
+                    <Store size={22} color="#0D0E12" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.dualOptionName, { color: colors.foreground }]}>Dealer Portal</Text>
+                      <View style={styles.dualOptionBadge}>
+                        <Text style={styles.dualOptionBadgeText}>Marketplace</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.dualOptionDesc, { color: colors.mutedForeground }]}>
+                      Browse verified inventory, place live auction bids, and manage won deals.
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.dualOptionFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+                  <Text style={[styles.dualOptionFooterText, { color: '#FFC700' }]}>Enter as Dealer</Text>
+                  <ChevronRight size={16} color="#FFC700" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Freelancer Option */}
+              <TouchableOpacity
+                style={[
+                  styles.dualOptionCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(56,189,248,0.06)' : '#F0F9FF',
+                    borderColor: 'rgba(56,189,248,0.35)',
+                  },
+                ]}
+                onPress={() => handleSelectDualRole('freelancer')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.dualOptionTop}>
+                  <View style={[styles.dualOptionIconBox, { backgroundColor: '#0284C7' }]}>
+                    <Car size={22} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.dualOptionName, { color: colors.foreground }]}>Freelancer Portal</Text>
+                      <View style={[styles.dualOptionBadge, { backgroundColor: 'rgba(2,132,199,0.15)', borderColor: 'rgba(2,132,199,0.3)' }]}>
+                        <Text style={[styles.dualOptionBadgeText, { color: '#0284C7' }]}>Inspections</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.dualOptionDesc, { color: colors.mutedForeground }]}>
+                      Upload car specs, photos & videos, and track your vehicle submission progress.
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.dualOptionFooter, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+                  <Text style={[styles.dualOptionFooterText, { color: '#0284C7' }]}>Enter as Freelancer</Text>
+                  <ChevronRight size={16} color="#0284C7" />
+                </View>
+              </TouchableOpacity>
+
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={[styles.dualCancelBtn, { borderColor: isDark ? '#2A2E3D' : '#E2E8F0' }]}
+              onPress={() => setDualRoleAuthData(null)}
+            >
+              <Text style={[styles.dualCancelBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 };
@@ -791,5 +933,125 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  dualModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.82)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dualModalContent: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 24,
+    borderWidth: 1.2,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  dualModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dualModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  dualModalSparkleIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 199, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 199, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  dualModalTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  dualModalSubtitle: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  dualOptionCard: {
+    borderRadius: 18,
+    borderWidth: 1.2,
+    padding: 14,
+  },
+  dualOptionTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  dualOptionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dualOptionName: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  dualOptionBadge: {
+    backgroundColor: 'rgba(255, 199, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 199, 0, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  dualOptionBadgeText: {
+    color: '#FFC700',
+    fontSize: 9.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  dualOptionDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 4,
+    lineHeight: 15,
+  },
+  dualOptionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  dualOptionFooterText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dualCancelBtn: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  dualCancelBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

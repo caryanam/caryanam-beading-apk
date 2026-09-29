@@ -220,7 +220,7 @@ export const freelancerService = {
   },
 
   // Update freelancer profile
-  async updateProfile(data: { fullName: string; mobileNumber: string }) {
+  async updateProfile(data: { fullName?: string; email?: string; mobileNumber?: string }) {
     const res = await apiClient.put('/api/freelancer/profile', data);
     return res.data;
   },

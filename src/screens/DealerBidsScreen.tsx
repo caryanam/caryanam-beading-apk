@@ -68,7 +68,7 @@ function formatIndianDateTime(input: string | number | Date | null | undefined):
   return 'N/A';
 }
 
-type TabKey = 'all' | 'live' | 'won' | 'lost';
+type TabKey = 'all' | 'live' | 'negotiable' | 'won' | 'lost';
 
 interface DealerBidsScreenProps {
   navigation: any;
@@ -107,7 +107,11 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
   const totalBidsCount = bids.length;
   const liveBidsCount = useMemo(() => bids.filter((b) => b.auction === 'live').length, [bids]);
   const wonBidsCount = useMemo(
-    () => bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid)).length,
+    () => bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid) && (String(b.status || '')).toLowerCase().includes('sold')).length,
+    [bids],
+  );
+  const negotiableBidsCount = useMemo(
+    () => bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid) && !(String(b.status || '')).toLowerCase().includes('sold')).length,
     [bids],
   );
   const lostBidsCount = useMemo(
@@ -118,7 +122,10 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
 
   const filteredBids = useMemo(() => {
     if (activeTab === 'live') return bids.filter((b) => b.auction === 'live');
-    if (activeTab === 'won') return bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid));
+    if (activeTab === 'negotiable')
+      return bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid) && !(String(b.status || '')).toLowerCase().includes('sold'));
+    if (activeTab === 'won')
+      return bids.filter((b) => b.auction !== 'live' && Number(b.myBid) >= Number(b.highestBid) && (String(b.status || '')).toLowerCase().includes('sold'));
     if (activeTab === 'lost') return bids.filter((b) => b.auction !== 'live' && Number(b.myBid) < Number(b.highestBid));
     return bids;
   }, [bids, activeTab]);
@@ -126,14 +133,29 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: 'all', label: 'All Bids', count: totalBidsCount },
     { key: 'live', label: 'Live', count: liveBidsCount },
+    { key: 'negotiable', label: 'Negotiable', count: negotiableBidsCount },
     { key: 'won', label: 'Won', count: wonBidsCount },
     { key: 'lost', label: 'Lost', count: lostBidsCount },
   ];
 
-  const statCards = [
-    { label: 'Total Bids Placed', value: String(totalBidsCount), icon: Gavel, color: '#FFC700', bg: 'rgba(255,199,0,0.12)' },
-    { label: 'Active Auctions', value: String(liveBidsCount), icon: Zap, color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-    { label: 'Bids Won', value: String(wonBidsCount), icon: Trophy, color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  const statCards: {
+    label: string;
+    value: string;
+    icon: any;
+    color: string;
+    bg: string;
+    tabKey?: TabKey;
+  }[] = [
+    { label: 'Total Bids Placed', value: String(totalBidsCount), icon: Gavel, color: '#FFC700', bg: 'rgba(255,199,0,0.12)', tabKey: 'all' },
+    { label: 'Active Auctions', value: String(liveBidsCount), icon: Zap, color: '#10B981', bg: 'rgba(16,185,129,0.12)', tabKey: 'live' },
+    {
+      label: wonBidsCount > 0 ? 'Bids Won' : 'Negotiable',
+      value: String(wonBidsCount > 0 ? wonBidsCount : negotiableBidsCount),
+      icon: Trophy,
+      color: wonBidsCount > 0 ? '#10B981' : '#F59E0B',
+      bg: wonBidsCount > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
+      tabKey: wonBidsCount > 0 ? 'won' : 'negotiable',
+    },
     { label: 'Total Bid Value', value: inr(totalBidValue), icon: TrendingUp, color: '#F43F5E', bg: 'rgba(244,63,94,0.12)' },
   ];
 
@@ -207,8 +229,19 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
           <View style={styles.statsGrid}>
             {statCards.map((s, idx) => {
               const IconComp = s.icon;
+              const isCardActive = s.tabKey ? activeTab === s.tabKey : false;
               return (
-                <View key={idx} style={[styles.statCard, { backgroundColor: s.bg, borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={idx}
+                  activeOpacity={s.tabKey ? 0.75 : 1}
+                  disabled={!s.tabKey}
+                  onPress={() => s.tabKey && setActiveTab(s.tabKey)}
+                  style={[
+                    styles.statCard,
+                    { backgroundColor: s.bg, borderColor: isCardActive ? '#FFC700' : colors.border },
+                    isCardActive && { borderWidth: 2 },
+                  ]}
+                >
                   <View style={[styles.statIconWrapper, { backgroundColor: 'rgba(0,0,0,0.08)' }]}>
                     <IconComp size={15} color={s.color} />
                   </View>
@@ -216,7 +249,12 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
                     {loading ? '...' : s.value}
                   </Text>
                   <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
-                </View>
+                  {s.tabKey && (
+                    <Text style={{ fontSize: 8.5, fontWeight: '700', color: isCardActive ? '#FFC700' : colors.mutedForeground, marginTop: 2 }}>
+                      {isCardActive ? '● Active' : 'Tap to filter'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -309,9 +347,15 @@ export const DealerBidsScreen: React.FC<DealerBidsScreenProps> = ({ navigation, 
                             <Text style={[styles.statusChipText, { color: '#10B981' }]}>LIVE AUCTION</Text>
                           </View>
                         ) : isWin ? (
-                          <View style={[styles.statusChip, { backgroundColor: 'rgba(59,130,246,0.12)', borderColor: 'rgba(59,130,246,0.3)' }]}>
-                            <Text style={[styles.statusChipText, { color: '#3B82F6' }]}>WON</Text>
-                          </View>
+                          (String(v.status || '')).toLowerCase().includes('sold') ? (
+                            <View style={[styles.statusChip, { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)' }]}>
+                              <Text style={[styles.statusChipText, { color: '#10B981' }]}>WON</Text>
+                            </View>
+                          ) : (
+                            <View style={[styles.statusChip, { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: 'rgba(245,158,11,0.35)' }]}>
+                              <Text style={[styles.statusChipText, { color: '#F59E0B' }]}>NEGOTIABLE</Text>
+                            </View>
+                          )
                         ) : (
                           <View style={[styles.statusChip, { backgroundColor: 'rgba(244,63,94,0.12)', borderColor: 'rgba(244,63,94,0.3)' }]}>
                             <Text style={[styles.statusChipText, { color: '#F43F5E' }]}>LOST</Text>

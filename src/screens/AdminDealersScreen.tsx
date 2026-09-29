@@ -28,6 +28,8 @@ import {
   Search,
   X,
   Upload,
+  Car,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
 import { AdminNotificationsModal } from '../components/AdminNotificationsModal';
@@ -71,6 +73,27 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [makingFreelancerId, setMakingFreelancerId] = useState<number | null>(null);
+
+  const handleMakeFreelancer = async (dealer: any) => {
+    setMakingFreelancerId(dealer.id);
+    try {
+      const res = await adminService.makeDealerFreelancer(dealer.id);
+      if (res.success) {
+        showToast({ message: `${dealer.dealershipName || 'Dealer'} is now granted Freelancer access!`, type: 'success' });
+        if (selectedDealer && selectedDealer.id === dealer.id) {
+          setSelectedDealer((prev: any) => (prev ? { ...prev, isFreelancer: true } : null));
+        }
+        fetchDealers();
+      } else {
+        showToast({ message: res.message || 'Failed to make freelancer.', type: 'error' });
+      }
+    } catch (err: any) {
+      showToast({ message: err.message || 'Failed to grant freelancer access.', type: 'error' });
+    } finally {
+      setMakingFreelancerId(null);
+    }
+  };
 
   // ── Data Fetching ──────────────────────────────────────
 
@@ -290,13 +313,40 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                       <View style={styles.storeIconWrap}>
                         <Store size={16} color="#FFC700" />
                       </View>
-                      <Text style={[styles.dealershipName, { color: colors.foreground }]} numberOfLines={1}>
-                        {d.dealershipName}
-                      </Text>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={[styles.dealershipName, { color: colors.foreground }]} numberOfLines={1}>
+                          {d.dealershipName}
+                        </Text>
+                        {d.isFreelancer && (
+                          <View style={styles.dealerFreelancerTag}>
+                            <Car size={9} color="#0284C7" />
+                            <Text style={styles.dealerFreelancerTagText}>Freelancer</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                    <TouchableOpacity style={styles.manageBtn} onPress={() => openManageModal(d)} activeOpacity={0.75}>
-                      <Text style={styles.manageBtnText}>Manage</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {!d.isFreelancer && (
+                        <TouchableOpacity
+                          style={styles.makeFreelancerCardBtn}
+                          onPress={() => handleMakeFreelancer(d)}
+                          disabled={makingFreelancerId === d.id}
+                          activeOpacity={0.75}
+                        >
+                          {makingFreelancerId === d.id ? (
+                            <ActivityIndicator size="small" color="#0284C7" />
+                          ) : (
+                            <>
+                              <Car size={11} color="#0284C7" />
+                              <Text style={styles.makeFreelancerCardBtnText}>Make Freelancer</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity style={styles.manageBtn} onPress={() => openManageModal(d)} activeOpacity={0.75}>
+                        <Text style={styles.manageBtnText}>Manage</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Card Body */}
@@ -309,7 +359,7 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                     <View style={styles.infoRow}>
                       <Mail size={12} color={colors.mutedForeground} />
                       <Text style={[styles.infoLabel, { color: colors.mutedForeground }]}>Email:</Text>
-                      <Text style={[styles.infoValue, { color: colors.foreground }]} numberOfLines={1}>{d.email}</Text>
+                      <Text style={[styles.infoValue, { color: colors.foreground }]} numberOfLines={1}>{d.email || 'N/A'}</Text>
                     </View>
                     <View style={styles.infoRow}>
                       <Phone size={12} color={colors.mutedForeground} />
@@ -378,6 +428,46 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
             {/* Scrollable Body */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
 
+              {/* Freelancer Access Card */}
+              <View style={[styles.modalFreelancerCard, { backgroundColor: isDark ? 'rgba(56,189,248,0.08)' : '#F0F9FF', borderColor: 'rgba(56,189,248,0.3)' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                    <View style={styles.modalFreelancerIcon}>
+                      <Car size={16} color="#0284C7" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.modalFreelancerTitle, { color: colors.foreground }]}>Freelancer Access</Text>
+                      <Text style={[styles.modalFreelancerDesc, { color: colors.mutedForeground }]}>
+                        {selectedDealer?.isFreelancer
+                          ? 'Active: Dealer can log in as Freelancer & upload vehicle inspections.'
+                          : 'Grant Freelancer role for uploading car inspections.'}
+                      </Text>
+                    </View>
+                  </View>
+                  {selectedDealer?.isFreelancer ? (
+                    <View style={styles.freelancerActiveBadge}>
+                      <CheckCircle2 size={12} color="#0284C7" />
+                      <Text style={styles.freelancerActiveBadgeText}>Active</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.modalMakeFreelancerBtn}
+                      onPress={() => handleMakeFreelancer(selectedDealer)}
+                      disabled={makingFreelancerId === selectedDealer?.id}
+                    >
+                      {makingFreelancerId === selectedDealer?.id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Car size={12} color="#FFFFFF" />
+                          <Text style={styles.modalMakeFreelancerBtnText}>Make Freelancer</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
               {/* 3 Summary Stat Cards */}
               <View style={styles.statRow}>
                 <View style={[styles.statCard, { backgroundColor: specPanelBg, borderColor: specBorder }]}>
@@ -424,7 +514,7 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                   </View>
                   <View style={styles.detailCell}>
                     <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Email Address</Text>
-                    <Text style={[styles.detailValue, { color: colors.foreground }]}>{selectedDealer?.email}</Text>
+                    <Text style={[styles.detailValue, { color: colors.foreground }]}>{selectedDealer?.email || 'N/A'}</Text>
                   </View>
                   <View style={styles.detailCell}>
                     <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>Mobile Contact</Text>
@@ -724,4 +814,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
   },
   confirmDeleteText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+
+  // Freelancer Role Integration Styles
+  dealerFreelancerTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(2,132,199,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(2,132,199,0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  dealerFreelancerTagText: {
+    color: '#0284C7',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  makeFreelancerCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(2,132,199,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(2,132,199,0.35)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  makeFreelancerCardBtnText: {
+    color: '#0284C7',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  modalFreelancerCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 14,
+  },
+  modalFreelancerIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(2,132,199,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(2,132,199,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  modalFreelancerTitle: {
+    fontSize: 12.5,
+    fontWeight: '900',
+  },
+  modalFreelancerDesc: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    marginTop: 1,
+    lineHeight: 14,
+  },
+  freelancerActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(2,132,199,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(2,132,199,0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  freelancerActiveBadgeText: {
+    color: '#0284C7',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  modalMakeFreelancerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0284C7',
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  modalMakeFreelancerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '900',
+  },
 });

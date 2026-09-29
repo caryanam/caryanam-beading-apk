@@ -48,6 +48,14 @@ function App(): React.JSX.Element {
 
     requestUserPermission();
 
+    const sanitizeNotificationText = (text?: string): string => {
+      if (!text) return '';
+      return text
+        .replace(/\s*\([A-Za-z0-9\-\s]+\)/g, '')
+        .replace(/(?:vehicle|veh)\s+[A-Za-z0-9\-]{4,15}/gi, 'Vehicle')
+        .trim();
+    };
+
     const unsubscribe = onMessage(getMessaging(), async remoteMessage => {
       console.log('FCM Received in foreground:', remoteMessage);
 
@@ -58,9 +66,12 @@ function App(): React.JSX.Element {
         importance: AndroidImportance.HIGH,
       });
 
+      const rawTitle = remoteMessage.notification?.title || 'New Bidding Notification!';
+      const rawBody = remoteMessage.notification?.body || 'You have a new message.';
+
       await notifee.displayNotification({
-        title: remoteMessage.notification?.title || 'New Bidding Notification!',
-        body: remoteMessage.notification?.body || 'You have a new message.',
+        title: sanitizeNotificationText(rawTitle),
+        body: sanitizeNotificationText(rawBody),
         android: {
           channelId,
           smallIcon: 'ic_launcher',
