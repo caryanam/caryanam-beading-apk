@@ -468,11 +468,19 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
   };
 
   // Live vs Upcoming lists
-  const liveRooms = useMemo(() => vehicles.filter((v) => v.vehicleStatus === 'LIVE'), [vehicles]);
+  const liveRooms = useMemo(() => {
+    return vehicles.filter((v) => {
+      const isLive = v.vehicleStatus === 'LIVE';
+      const isExpired = v.auctionEndTime && Number(v.auctionEndTime) <= Date.now();
+      return isLive && !isExpired;
+    });
+  }, [vehicles]);
+
   const upcomingRooms = useMemo(() => {
     return vehicles.filter((v) => {
       const status = v.vehicleStatus;
-      return status && status !== 'LIVE' && status !== 'SOLD OUT' && status !== 'SOLD' && status !== 'ENDED' && status !== 'COMPLETED' && status !== 'AUCTION ENDED';
+      const isExpired = v.auctionEndTime && Number(v.auctionEndTime) <= Date.now();
+      return status && status !== 'LIVE' && status !== 'SOLD OUT' && status !== 'SOLD' && status !== 'ENDED' && status !== 'COMPLETED' && status !== 'AUCTION ENDED' && !isExpired;
     });
   }, [vehicles]);
 
@@ -493,7 +501,21 @@ export const DealerDashboardScreen: React.FC<DealerDashboardScreenProps> = ({ na
   const featuredHighestBid = featured?.currentHighestBid || 0;
   const featuredPrice = featured?.suggestedPrice || 0;
 
-  const mappedVehicles = useMemo(() => vehicles.map((item) => mapVehicle(item, dealerBids)), [vehicles, dealerBids]);
+  const mappedVehicles = useMemo(() => {
+    return vehicles
+      .map((item) => mapVehicle(item, dealerBids))
+      .filter((v) => {
+        const isEndedOrSold =
+          v.auction === 'sold out' ||
+          v.auction === 'ended' ||
+          (v.endsAt && Number(v.endsAt) <= Date.now());
+        if (isEndedOrSold) {
+          // If auction has ended or vehicle is sold out, only display to the winning dealer
+          return v.userBidStatus === 'top';
+        }
+        return true;
+      });
+  }, [vehicles, dealerBids]);
   const recommended = useMemo(() => mappedVehicles.slice(0, 3), [mappedVehicles]);
 
   const cardBg = isDark ? '#12141C' : '#FFFFFF';

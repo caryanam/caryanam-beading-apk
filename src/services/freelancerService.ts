@@ -13,14 +13,33 @@ export const resolveMediaUrl = (url?: string | null): string | null => {
 
 export const freelancerService = {
   // Get all freelancer's evaluations (drafts & uploads)
-  async getMyInspections() {
+  async getMyInspections(params?: { freelancerId?: number | string; all?: boolean } | number | string) {
     try {
-      const res = await apiClient.get('/api/freelancer/inspection');
+      let query = '';
+      if (typeof params === 'object' && params !== null) {
+        const parts: string[] = [];
+        if (params.freelancerId) parts.push(`freelancerId=${params.freelancerId}`);
+        if (params.all) parts.push('all=true');
+        if (parts.length > 0) query = '?' + parts.join('&');
+      } else if (params !== undefined && params !== null) {
+        query = `?freelancerId=${params}`;
+      }
+
+      const res = await apiClient.get(`/api/freelancer/inspection${query}`);
       return res.data;
     } catch (err: any) {
       if (err.response?.status === 404 || err.response?.status === 403) {
         try {
-          const altRes = await apiClient.get('/api/freelancer/vehicles');
+          let query = '';
+          if (typeof params === 'object' && params !== null) {
+            const parts: string[] = [];
+            if (params.freelancerId) parts.push(`freelancerId=${params.freelancerId}`);
+            if (params.all) parts.push('all=true');
+            if (parts.length > 0) query = '?' + parts.join('&');
+          } else if (params !== undefined && params !== null) {
+            query = `?freelancerId=${params}`;
+          }
+          const altRes = await apiClient.get(`/api/freelancer/vehicles${query}`);
           return altRes.data;
         } catch {
           return { success: true, data: [] };

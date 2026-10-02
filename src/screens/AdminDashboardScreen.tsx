@@ -252,7 +252,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
         adminService.getSubmittedInspections(), 
         adminService.getRegisteredDealers(), 
         adminService.getRegisteredFreelancers(),
-        freelancerService.getMyInspections()
+        freelancerService.getMyInspections({ all: true })
       ]);
       
       let combinedInspections: any[] = [];

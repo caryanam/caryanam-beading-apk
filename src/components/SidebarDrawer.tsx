@@ -12,6 +12,7 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  Linking,
 } from 'react-native';
 import {
   Home,
@@ -37,6 +38,8 @@ import {
   MessageSquare,
   Bell,
   Upload,
+  Mail,
+  Phone,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { authService } from '../services/authService';
@@ -424,6 +427,67 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                   </View>
                 </View>
               ))}
+
+              {/* Landing Page Exclusive Contact Details (Email & Mobile) */}
+              {(!isUserLoggedIn || currentRouteName === 'Home') && (
+                <View style={styles.landingContactSection}>
+                  <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                    DIRECT CONTACT
+                  </Text>
+                  <View
+                    style={[
+                      styles.landingContactCard,
+                      {
+                        backgroundColor: theme === 'dark' ? 'rgba(255, 199, 0, 0.05)' : 'rgba(255, 199, 0, 0.08)',
+                        borderColor: theme === 'dark' ? 'rgba(255, 199, 0, 0.2)' : 'rgba(255, 199, 0, 0.35)',
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.landingContactRow}
+                      onPress={() => Linking.openURL('mailto:support@caryanamlive.com')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.contactIconBg, { backgroundColor: 'rgba(255, 199, 0, 0.15)' }]}>
+                        <Mail size={15} color="#D97706" />
+                      </View>
+                      <View style={styles.contactTextCol}>
+                        <Text style={[styles.contactLabel, { color: colors.mutedForeground }]}>
+                          EMAIL SUPPORT
+                        </Text>
+                        <Text style={[styles.contactValue, { color: colors.foreground }]}>
+                          support@caryanamlive.com
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View
+                      style={[
+                        styles.contactDivider,
+                        { backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+                      ]}
+                    />
+
+                    <TouchableOpacity
+                      style={styles.landingContactRow}
+                      onPress={() => Linking.openURL('tel:+917755994123')}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.contactIconBg, { backgroundColor: 'rgba(255, 199, 0, 0.15)' }]}>
+                        <Phone size={15} color="#D97706" />
+                      </View>
+                      <View style={styles.contactTextCol}>
+                        <Text style={[styles.contactLabel, { color: colors.mutedForeground }]}>
+                          MOBILE / HELPLINE
+                        </Text>
+                        <Text style={[styles.contactValue, { color: colors.foreground }]}>
+                          +91 7755994123
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             {/* Footer */}
@@ -716,5 +780,44 @@ const styles = StyleSheet.create({
   secondaryActionText: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  landingContactSection: {
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  landingContactCard: {
+    borderRadius: 14,
+    borderWidth: 1.2,
+    padding: 12,
+  },
+  landingContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  contactIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  contactTextCol: {
+    flex: 1,
+  },
+  contactLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
+  contactValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  contactDivider: {
+    height: 1,
+    marginVertical: 8,
   },
 });

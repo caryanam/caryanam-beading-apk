@@ -96,8 +96,21 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
         const res = await adminService.getSubmittedInspections();
         if (res.success && res.data) {
           const approvedOnly = res.data.filter((ins: any) => {
-            const s = String(ins.status || ins.vehicleStatus || '').toUpperCase();
-            return s === 'APPROVED' || s === 'READY_FOR_AUCTION' || s === 'LIVE' || s === 'SOLD' || s === 'SOLD OUT' || s === 'COMPLETED';
+            const vStatus = String(ins.vehicleStatus || '').toUpperCase();
+            const iStatus = String(ins.status || '').toUpperCase();
+            return (
+              vStatus === 'APPROVED' ||
+              vStatus === 'READY_FOR_AUCTION' ||
+              vStatus === 'LIVE' ||
+              vStatus === 'SOLD' ||
+              vStatus === 'SOLD OUT' ||
+              vStatus === 'ENDED' ||
+              vStatus === 'AUCTION ENDED' ||
+              vStatus === 'AUCTION_ENDED' ||
+              vStatus === 'COMPLETED' ||
+              iStatus === 'APPROVED' ||
+              iStatus === 'READY_FOR_AUCTION'
+            );
           });
           setInspections(approvedOnly);
           if (showMsg) showToast({ message: 'Inspector auctions list updated', type: 'success' });
@@ -105,12 +118,26 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
           setInspections([]);
         }
       } else {
-        const res = await freelancerService.getMyInspections();
+        const res = await adminService.getFreelancerInspections();
         if (res.success && res.data) {
           const processed = res.data
             .filter((ins: any) => {
-              const s = String(ins.status || ins.vehicleStatus || '').toUpperCase();
-              return s === 'APPROVED' || s === 'READY_FOR_AUCTION' || s === 'LIVE' || s === 'SOLD' || s === 'SOLD OUT' || s === 'COMPLETED';
+              const vStatus = String(ins.vehicleStatus || '').toUpperCase();
+              const iStatus = String(ins.status || '').toUpperCase();
+              return (
+                vStatus === 'APPROVED' ||
+                vStatus === 'READY_FOR_AUCTION' ||
+                vStatus === 'LIVE' ||
+                vStatus === 'SOLD' ||
+                vStatus === 'SOLD OUT' ||
+                vStatus === 'ENDED' ||
+                vStatus === 'AUCTION ENDED' ||
+                vStatus === 'AUCTION_ENDED' ||
+                vStatus === 'COMPLETED' ||
+                iStatus === 'APPROVED' ||
+                iStatus === 'READY_FOR_AUCTION' ||
+                iStatus === 'SUBMITTED'
+              );
             })
             .map((item: any) => ({
               ...item,
@@ -123,8 +150,8 @@ export const AdminAuctionsScreen: React.FC<AdminAuctionsScreenProps> = ({ naviga
               suggestedPrice: item.suggestedPrice || item.price || 0,
               submittedAt: item.submittedAt || item.createdAt || null,
               inspectorName: item.freelancerName || item.inspectorName || item.inspector?.fullName || (item.inspectorId ? `Freelancer #${item.inspectorId}` : 'N/A'),
-              status: item.status || item.vehicleStatus || 'APPROVED',
-              vehicleStatus: item.vehicleStatus || item.status || 'READY_FOR_AUCTION',
+              status: item.status || 'APPROVED',
+              vehicleStatus: item.vehicleStatus || (item.status === 'APPROVED' ? 'READY_FOR_AUCTION' : 'READY_FOR_AUCTION'),
             }));
           setInspections(processed);
           if (showMsg) showToast({ message: 'Freelancer auctions list updated', type: 'success' });

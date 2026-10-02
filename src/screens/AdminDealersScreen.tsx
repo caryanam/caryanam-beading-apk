@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -30,6 +31,11 @@ import {
   Upload,
   Car,
   CheckCircle2,
+  Check,
+  TriangleAlert,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import { adminService } from '../services/adminService';
 import { AdminNotificationsModal } from '../components/AdminNotificationsModal';
@@ -75,6 +81,20 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
   const [importing, setImporting] = useState(false);
   const [makingFreelancerId, setMakingFreelancerId] = useState<number | null>(null);
 
+  // Multi-selection state
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Import summary modal state
+  const [importSummary, setImportSummary] = useState<{
+    totalRows: number;
+    importedCount: number;
+    skippedCount: number;
+    issues: string[];
+  } | null>(null);
+  const [showImportSummaryModal, setShowImportSummaryModal] = useState(false);
+
   const handleMakeFreelancer = async (dealer: any) => {
     setMakingFreelancerId(dealer.id);
     try {
@@ -119,6 +139,11 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
   }, []);
   const onRefresh = () => fetchDealers(true);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // ── Search & Filter ────────────────────────────────────
 
   const filteredDealers = useMemo(() => {
@@ -134,6 +159,21 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
       ].join(' ').toLowerCase().includes(q),
     );
   }, [dealers, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDealers.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredDealers.length);
+  const paginatedDealers = useMemo(
+    () => filteredDealers.slice(startIndex, endIndex),
+    [filteredDealers, startIndex, endIndex]
+  );
+
+  const goToPage = (newPage: number) => {
+    const target = Math.max(1, Math.min(totalPages, newPage));
+    setPage(target);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  };
 
   // ── Actions ────────────────────────────────────────────
 
@@ -159,27 +199,122 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
       } as any);
 
       const res = await adminService.importDealersExcel(formData);
-      if (res.success) {
-        showToast({ message: 'Dealers imported successfully.', type: 'success' });
+      if (res.data) {
+        setImportSummary(res.data);
+        setShowImportSummaryModal(true);
+      }
+      if (res.success && (!res.data || res.data.importedCount > 0)) {
+        showToast({ message: res.message || 'Dealers imported successfully.', type: 'success' });
+        fetchDealers();
+      } else if (res.data && res.data.importedCount === 0) {
+        showToast({ message: res.message || 'No dealers were imported. Check issue details.', type: 'error' });
+      } else if (res.success) {
+        showToast({ message: res.message || 'Dealers imported successfully.', type: 'success' });
         fetchDealers();
       } else {
         showToast({ message: res.message || 'Import failed. Check the file format.', type: 'error' });
       }
     } catch (err: any) {
       if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) return;
-      showToast({ message: 'Import failed. Please try again.', type: 'error' });
+      showToast({ message: err?.response?.data?.message || err?.message || 'Import failed. Please try again.', type: 'error' });
     } finally {
       setImporting(false);
     }
   };
 
+  const canDeleteDealer = (d: any) => {
+    if (!d) return false;
+    const bids = d.totalBids ?? 0;
+    const won = d.wonBidsCount ?? d.wonBids?.length ?? 0;
+    return bids === 0 && won === 0;
+  };
+
+  const isAllSelected = filteredDealers.length > 0 && filteredDealers.every((d) => selectedIds.includes(d.id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredDealers.map((d) => d.id));
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds([]);
+  };
+
+  const selectedDealers = useMemo(
+    () => dealers.filter((d) => selectedIds.includes(d.id)),
+    [dealers, selectedIds]
+  );
+  const eligibleSelectedDealers = useMemo(
+    () => selectedDealers.filter(canDeleteDealer),
+    [selectedDealers]
+  );
+  const ineligibleSelectedDealers = useMemo(
+    () => selectedDealers.filter((d) => !canDeleteDealer(d)),
+    [selectedDealers]
+  );
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await adminService.deleteMultipleDealers(selectedIds);
+      if (res.success && res.data) {
+        const { deletedCount, skippedCount } = res.data;
+        if (deletedCount > 0) {
+          showToast({ message: `${deletedCount} dealer(s) deleted successfully.`, type: 'success' });
+        }
+        if (skippedCount > 0) {
+          showToast({
+            message: `${skippedCount} dealer(s) were protected and skipped (have active bids or won auctions).`,
+            type: 'info',
+          });
+        }
+        if (deletedCount === 0 && skippedCount > 0) {
+          showToast({
+            message: `0 deleted. All ${skippedCount} selected dealer(s) have active bids or won auctions.`,
+            type: 'error',
+          });
+        }
+        setSelectedIds([]);
+        setShowBulkDeleteConfirm(false);
+        fetchDealers();
+      } else {
+        showToast({ message: res.message || 'Failed to delete selected dealers.', type: 'error' });
+      }
+    } catch (err: any) {
+      showToast({ message: err.response?.data?.message || err.message || 'Failed to delete dealers.', type: 'error' });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleDeleteDealer = async () => {
-    if (!selectedDealer) return;
+    const targetDealer = selectedDealer;
+    if (!targetDealer) return;
+    if (!canDeleteDealer(targetDealer)) {
+      showToast({
+        message: `Cannot delete: Dealer has ${targetDealer.totalBids ?? 0} bid(s) and ${targetDealer.wonBidsCount ?? targetDealer.wonBids?.length ?? 0} won. Only dealers with 0 bids and 0 won can be deleted.`,
+        type: 'error',
+      });
+      setShowDeleteConfirm(false);
+      return;
+    }
+
     setDeleting(true);
     try {
-      const res = await adminService.deleteAdminDealer(selectedDealer.id);
+      const res = await adminService.deleteAdminDealer(targetDealer.id);
       if (res.success) {
         showToast({ message: 'Dealer account removed.', type: 'success' });
+        setSelectedIds((prev) => prev.filter((id) => id !== targetDealer.id));
         setSelectedDealer(null);
         setShowDeleteConfirm(false);
         fetchDealers();
@@ -237,12 +372,21 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
             placeholder="Search dealers by shop name, owner, city..."
             placeholderTextColor={colors.mutedForeground}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              setPage(1);
+            }}
             returnKeyType="search"
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setPage(1);
+              }}
+              activeOpacity={0.7}
+            >
               <X size={15} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
@@ -257,26 +401,62 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
         </View>
       ) : (
         <ScrollView
+          ref={scrollViewRef}
           style={{ flex: 1 }}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, selectedIds.length > 0 && { paddingBottom: 95 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFC700" />}
           showsVerticalScrollIndicator={false}
         >
 
-          {/* Import Excel / CSV Quick Action */}
-          <TouchableOpacity
-            style={[styles.importBtn, importing && styles.importBtnDisabled]}
-            onPress={handleImportExcel}
-            disabled={importing}
-            activeOpacity={0.85}
-          >
-            {importing ? (
-              <ActivityIndicator size="small" color="#0D0E12" />
-            ) : (
-              <Upload size={15} color="#0D0E12" />
+          {/* Top Actions Row: Select All + Import Excel */}
+          <View style={styles.topActionsRow}>
+            {filteredDealers.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.selectAllBtn,
+                  {
+                    backgroundColor: isAllSelected ? 'rgba(255,199,0,0.18)' : isDark ? '#1A1D28' : '#F0F2F7',
+                    borderColor: isAllSelected ? '#FFC700' : colors.border,
+                  },
+                ]}
+                onPress={handleToggleSelectAll}
+                activeOpacity={0.75}
+              >
+                <View
+                  style={[
+                    styles.checkboxSmall,
+                    isAllSelected
+                      ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
+                      : { borderColor: colors.mutedForeground, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                  ]}
+                >
+                  {isAllSelected && <Check size={11} color="#0D0E12" strokeWidth={3} />}
+                </View>
+                <Text
+                  style={[
+                    styles.selectAllBtnText,
+                    { color: isAllSelected ? '#FFC700' : colors.foreground },
+                  ]}
+                >
+                  {isAllSelected ? 'Deselect All' : `Select All (${filteredDealers.length})`}
+                </Text>
+              </TouchableOpacity>
             )}
-            <Text style={styles.importBtnText}>{importing ? 'Importing...' : 'Import Excel / CSV'}</Text>
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.importBtn, importing && styles.importBtnDisabled]}
+              onPress={handleImportExcel}
+              disabled={importing}
+              activeOpacity={0.85}
+            >
+              {importing ? (
+                <ActivityIndicator size="small" color="#0D0E12" />
+              ) : (
+                <Upload size={14} color="#0D0E12" strokeWidth={2.5} />
+              )}
+              <Text style={styles.importBtnText}>{importing ? 'Importing...' : 'Import Excel'}</Text>
+            </TouchableOpacity>
+          </View>
 
           {filteredDealers.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -289,9 +469,11 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
               </Text>
             </View>
           ) : (
-            filteredDealers.map((d) => {
+            paginatedDealers.map((d) => {
               const bidsCount = d.totalBids ?? 0;
               const wonCount = d.wonBidsCount ?? d.wonBids?.length ?? 0;
+              const isSelected = selectedIds.includes(d.id);
+
               return (
                 <View
                   key={d.id}
@@ -299,7 +481,12 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                     styles.card,
                     {
                       backgroundColor: cardBg,
-                      borderColor: isDark ? colors.border : 'rgba(100,110,150,0.18)',
+                      borderColor: isSelected
+                        ? '#FFC700'
+                        : isDark
+                        ? colors.border
+                        : 'rgba(100,110,150,0.18)',
+                      borderWidth: isSelected ? 1.5 : 1,
                     },
                   ]}
                 >
@@ -307,13 +494,29 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                   <View style={[styles.cardGlowTop, { backgroundColor: isDark ? 'rgba(255,199,0,0.06)' : 'rgba(255,199,0,0.10)' }]} />
                   <View style={[styles.cardGlowBottom, { backgroundColor: isDark ? 'rgba(255,199,0,0.04)' : 'rgba(255,199,0,0.07)' }]} />
 
-                  {/* Card Header */}
-                  <View style={[styles.cardHeader, { backgroundColor: cardHeaderBg }]}>
-                    <View style={styles.cardHeaderLeft}>
+                  {/* Card Header with Checkbox */}
+                  <View style={[styles.cardHeader, { backgroundColor: isSelected ? (isDark ? 'rgba(255,199,0,0.08)' : 'rgba(255,199,0,0.12)') : cardHeaderBg }]}>
+                    <TouchableOpacity
+                      style={styles.cardHeaderLeft}
+                      onPress={() => handleToggleSelect(d.id)}
+                      activeOpacity={0.75}
+                    >
+                      {/* Checkbox */}
+                      <View
+                        style={[
+                          styles.checkbox,
+                          isSelected
+                            ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
+                            : { borderColor: colors.mutedForeground, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+                        ]}
+                      >
+                        {isSelected && <Check size={13} color="#0D0E12" strokeWidth={3} />}
+                      </View>
+
                       <View style={styles.storeIconWrap}>
                         <Store size={16} color="#FFC700" />
                       </View>
-                      <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flex: 1, marginRight: 4 }}>
                         <Text style={[styles.dealershipName, { color: colors.foreground }]} numberOfLines={1}>
                           {d.dealershipName}
                         </Text>
@@ -324,7 +527,7 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                           </View>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       {!d.isFreelancer && (
                         <TouchableOpacity
@@ -396,6 +599,134 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
                 </View>
               );
             })
+          )}
+
+          {/* Pagination Controls Card */}
+          {filteredDealers.length > 0 && (
+            <View style={[styles.paginationCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
+              {/* Info Row: Record counts + Page Size selector */}
+              <View style={styles.paginationInfoRow}>
+                <Text style={[styles.paginationCountText, { color: colors.mutedForeground }]}>
+                  Showing <Text style={{ fontWeight: '900', color: colors.foreground }}>{startIndex + 1} - {endIndex}</Text> of{' '}
+                  <Text style={{ fontWeight: '900', color: colors.foreground }}>{filteredDealers.length}</Text> dealers
+                </Text>
+
+                {/* Page Size Selector (10, 20, 50) */}
+                <View style={styles.pageSizeRow}>
+                  <Text style={[styles.pageSizeLabel, { color: colors.mutedForeground }]}>Per page:</Text>
+                  {[10, 20, 50].map((size) => (
+                    <TouchableOpacity
+                      key={size}
+                      style={[
+                        styles.pageSizeChip,
+                        pageSize === size
+                          ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
+                          : { borderColor: colors.border, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7' },
+                      ]}
+                      onPress={() => {
+                        setPageSize(size);
+                        setPage(1);
+                        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.pageSizeChipText,
+                          { color: pageSize === size ? '#0D0E12' : colors.foreground },
+                        ]}
+                      >
+                        {size}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Navigation Buttons Row */}
+              {totalPages > 1 && (
+                <View style={[styles.paginationNavRow, { borderTopColor: specBorder }]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.pageNavBtn,
+                      { borderColor: colors.border, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7' },
+                      currentPage === 1 && styles.pageNavBtnDisabled,
+                    ]}
+                    onPress={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    activeOpacity={0.75}
+                  >
+                    <ChevronLeft size={16} color={currentPage === 1 ? colors.mutedForeground : colors.foreground} />
+                    <Text
+                      style={[
+                        styles.pageNavBtnText,
+                        { color: currentPage === 1 ? colors.mutedForeground : colors.foreground },
+                      ]}
+                    >
+                      Prev
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Page numbers or indicator */}
+                  <View style={styles.pageNumbersRow}>
+                    {totalPages <= 5 ? (
+                      Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                        const isActive = p === currentPage;
+                        return (
+                          <TouchableOpacity
+                            key={p}
+                            style={[
+                              styles.pageNumBtn,
+                              isActive
+                                ? { backgroundColor: '#FFC700', borderColor: '#FFC700' }
+                                : { borderColor: colors.border, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7' },
+                            ]}
+                            onPress={() => goToPage(p)}
+                            activeOpacity={0.75}
+                          >
+                            <Text
+                              style={[
+                                styles.pageNumText,
+                                { color: isActive ? '#0D0E12' : colors.foreground },
+                              ]}
+                            >
+                              {p}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    ) : (
+                      <View style={[styles.pageIndicatorPill, { backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderColor: colors.border }]}>
+                        <Text style={[styles.pageIndicatorText, { color: colors.foreground }]}>
+                          Page <Text style={{ color: '#FFC700', fontWeight: '900' }}>{currentPage}</Text> of {totalPages}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.pageNavBtn,
+                      { borderColor: colors.border, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7' },
+                      currentPage === totalPages && styles.pageNavBtnDisabled,
+                    ]}
+                    onPress={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        styles.pageNavBtnText,
+                        { color: currentPage === totalPages ? colors.mutedForeground : colors.foreground },
+                      ]}
+                    >
+                      Next
+                    </Text>
+                    <ChevronRight size={16} color={currentPage === totalPages ? colors.mutedForeground : colors.foreground} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
         </ScrollView>
       )}
@@ -582,15 +913,22 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
 
             {/* Sticky Footer Controls */}
             <View style={[styles.modalFooter, { borderTopColor: specBorder }]}>
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => setShowDeleteConfirm(true)}
-                disabled={deleting}
-                activeOpacity={0.8}
-              >
-                <Trash2 size={15} color="#F43F5E" />
-                <Text style={styles.deleteBtnText}>Delete Dealer</Text>
-              </TouchableOpacity>
+              {canDeleteDealer(selectedDealer) ? (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  activeOpacity={0.8}
+                >
+                  <Trash2 size={15} color="#F43F5E" />
+                  <Text style={styles.deleteBtnText}>Delete Dealer</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.deleteBtn, { opacity: 0.5, borderColor: colors.border, backgroundColor: colors.secondary }]}>
+                  <Trash2 size={15} color={colors.mutedForeground} />
+                  <Text style={[styles.deleteBtnText, { color: colors.mutedForeground }]}>Delete (Locked: Has Bids/Won)</Text>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[styles.closeWindowBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
@@ -603,6 +941,43 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
           </View>
         </View>
       </Modal>
+
+      {/* Floating Sticky Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <View
+          style={[
+            styles.bulkActionBar,
+            {
+              backgroundColor: isDark ? '#12141C' : '#FFFFFF',
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.bulkActionLeft}>
+            <View style={styles.bulkSelectedBadge}>
+              <Text style={styles.bulkSelectedBadgeText}>{selectedIds.length}</Text>
+            </View>
+            <Text style={[styles.bulkSelectedText, { color: colors.foreground }]}>Selected</Text>
+          </View>
+          <View style={styles.bulkActionRight}>
+            <TouchableOpacity
+              style={[styles.bulkDeselectBtn, { borderColor: colors.border, backgroundColor: isDark ? '#1A1D28' : '#F0F2F7' }]}
+              onPress={handleDeselectAll}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.bulkDeselectText, { color: colors.mutedForeground }]}>Deselect</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.bulkDeleteBtn}
+              onPress={() => setShowBulkDeleteConfirm(true)}
+              activeOpacity={0.85}
+            >
+              <Trash2 size={13} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.bulkDeleteText}>Delete ({selectedIds.length})</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Delete Confirmation Modal */}
       <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
@@ -640,6 +1015,221 @@ export const AdminDealersScreen: React.FC<AdminDealersScreenProps> = ({ onOpenMe
           </View>
         </View>
       </Modal>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal visible={showBulkDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowBulkDeleteConfirm(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.bulkModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            
+            {/* Header */}
+            <View style={[styles.bulkModalHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.bulkModalHeaderLeft}>
+                <View style={styles.confirmDangerIcon}>
+                  <Trash2 size={22} color="#F43F5E" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.bulkModalTitle, { color: colors.foreground }]}>Delete Selected Dealers</Text>
+                  <Text style={[styles.bulkModalSub, { color: colors.mutedForeground }]}>
+                    Rule: Only dealers with 0 bids and 0 won auctions can be deleted
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowBulkDeleteConfirm(false)}
+                style={[styles.modalCloseBtn, { borderColor: colors.border }]}
+                activeOpacity={0.75}
+              >
+                <X size={16} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+              {/* 3 Summary Stats */}
+              <View style={styles.bulkStatRow}>
+                <View style={[styles.bulkStatCard, { backgroundColor: specPanelBg, borderColor: specBorder }]}>
+                  <Text style={[styles.bulkStatLabel, { color: colors.mutedForeground }]}>SELECTED</Text>
+                  <Text style={[styles.bulkStatValue, { color: colors.foreground }]}>{selectedIds.length}</Text>
+                </View>
+
+                <View style={[styles.bulkStatCard, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.3)' }]}>
+                  <Text style={[styles.bulkStatLabel, { color: '#10B981' }]}>ELIGIBLE (0 BIDS)</Text>
+                  <Text style={[styles.bulkStatValue, { color: '#10B981' }]}>{eligibleSelectedDealers.length}</Text>
+                </View>
+
+                <View style={[styles.bulkStatCard, { backgroundColor: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.3)' }]}>
+                  <Text style={[styles.bulkStatLabel, { color: '#D97706' }]}>PROTECTED</Text>
+                  <Text style={[styles.bulkStatValue, { color: '#D97706' }]}>{ineligibleSelectedDealers.length}</Text>
+                </View>
+              </View>
+
+              {/* Ineligible / Protected Dealers warning box if any */}
+              {ineligibleSelectedDealers.length > 0 && (
+                <View style={styles.protectedBox}>
+                  <View style={styles.protectedHeaderRow}>
+                    <TriangleAlert size={14} color="#D97706" />
+                    <Text style={styles.protectedHeaderText}>
+                      Protected Dealers ({ineligibleSelectedDealers.length}) — Will NOT be deleted:
+                    </Text>
+                  </View>
+                  <View style={[styles.protectedListWrap, { borderColor: 'rgba(245,158,11,0.25)', backgroundColor: 'rgba(245,158,11,0.05)' }]}>
+                    {ineligibleSelectedDealers.map((d) => (
+                      <View key={d.id} style={styles.protectedItemRow}>
+                        <Text style={[styles.protectedItemName, { color: colors.foreground }]} numberOfLines={1}>
+                          {d.dealershipName} <Text style={{ color: colors.mutedForeground, fontWeight: '500' }}>#{d.id}</Text>
+                        </Text>
+                        <Text style={styles.protectedItemStats}>
+                          {d.totalBids ?? 0} bid(s) · {d.wonBidsCount ?? d.wonBids?.length ?? 0} won
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={[styles.protectedNoticeText, { color: colors.mutedForeground }]}>
+                    * Dealers with active bidding activity or won auctions cannot be deleted to maintain auction integrity.
+                  </Text>
+                </View>
+              )}
+
+              {/* Action notice */}
+              {eligibleSelectedDealers.length === 0 ? (
+                <View style={styles.noEligibleBox}>
+                  <Text style={styles.noEligibleText}>
+                    None of the selected dealers have 0 bids and 0 won auctions. No dealers can be deleted.
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.eligibleConfirmText, { color: colors.mutedForeground }]}>
+                  Are you sure you want to permanently delete the{' '}
+                  <Text style={{ fontWeight: '900', color: colors.foreground }}>
+                    {eligibleSelectedDealers.length} eligible dealer(s)
+                  </Text>? This action cannot be undone.
+                </Text>
+              )}
+            </ScrollView>
+
+            {/* Footer Buttons */}
+            <View style={[styles.bulkModalFooter, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.confirmCancelBtn, { borderColor: colors.border }]}
+                onPress={() => setShowBulkDeleteConfirm(false)}
+                disabled={bulkDeleting}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmDeleteBtn,
+                  (bulkDeleting || eligibleSelectedDealers.length === 0) && { opacity: 0.5 },
+                ]}
+                onPress={handleBulkDelete}
+                disabled={bulkDeleting || eligibleSelectedDealers.length === 0}
+                activeOpacity={0.8}
+              >
+                {bulkDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Trash2 size={14} color="#FFFFFF" />
+                )}
+                <Text style={styles.confirmDeleteText}>
+                  {bulkDeleting ? 'Deleting...' : `Delete ${eligibleSelectedDealers.length} Dealer(s)`}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
+      {/* Import Summary Modal */}
+      <Modal visible={showImportSummaryModal} transparent animationType="fade" onRequestClose={() => setShowImportSummaryModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.bulkModalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            
+            {/* Header */}
+            <View style={[styles.bulkModalHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.bulkModalHeaderLeft}>
+                <View style={styles.importSuccessIcon}>
+                  <Upload size={20} color="#FFC700" strokeWidth={2.5} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.bulkModalTitle, { color: colors.foreground }]}>Excel Import Summary</Text>
+                  <Text style={[styles.bulkModalSub, { color: colors.mutedForeground }]}>
+                    Results from your uploaded spreadsheet
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowImportSummaryModal(false)}
+                style={[styles.modalCloseBtn, { borderColor: colors.border }]}
+                activeOpacity={0.75}
+              >
+                <X size={16} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ padding: 16, gap: 14 }}>
+              {/* 3 Summary Stats */}
+              <View style={styles.bulkStatRow}>
+                <View style={[styles.bulkStatCard, { backgroundColor: specPanelBg, borderColor: specBorder }]}>
+                  <Text style={[styles.bulkStatLabel, { color: colors.mutedForeground }]}>TOTAL ROWS</Text>
+                  <Text style={[styles.bulkStatValue, { color: colors.foreground }]}>
+                    {importSummary?.totalRows ?? 0}
+                  </Text>
+                </View>
+
+                <View style={[styles.bulkStatCard, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.3)' }]}>
+                  <Text style={[styles.bulkStatLabel, { color: '#10B981' }]}>IMPORTED</Text>
+                  <Text style={[styles.bulkStatValue, { color: '#10B981' }]}>
+                    {importSummary?.importedCount ?? 0}
+                  </Text>
+                </View>
+
+                <View style={[styles.bulkStatCard, { backgroundColor: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.3)' }]}>
+                  <Text style={[styles.bulkStatLabel, { color: '#D97706' }]}>SKIPPED</Text>
+                  <Text style={[styles.bulkStatValue, { color: '#D97706' }]}>
+                    {importSummary?.skippedCount ?? 0}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Issues / Skipped list */}
+              {importSummary?.issues && importSummary.issues.length > 0 && (
+                <View style={styles.importIssuesBox}>
+                  <View style={styles.protectedHeaderRow}>
+                    <AlertCircle size={14} color="#D97706" />
+                    <Text style={styles.protectedHeaderText}>
+                      Issues & Skipped Rows ({importSummary.issues.length}):
+                    </Text>
+                  </View>
+                  <View style={[styles.importIssuesList, { borderColor: 'rgba(245,158,11,0.25)', backgroundColor: 'rgba(245,158,11,0.05)' }]}>
+                    {importSummary.issues.map((issue, idx) => (
+                      <View key={idx} style={styles.importIssueItem}>
+                        <AlertCircle size={12} color="#D97706" style={{ marginTop: 2 }} />
+                        <Text style={[styles.importIssueText, { color: colors.foreground }]}>
+                          {issue}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Footer Close Button */}
+            <View style={[styles.bulkModalFooter, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.importCloseBtn}
+                onPress={() => setShowImportSummaryModal(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.importCloseBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -669,14 +1259,197 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 12, fontWeight: '600', marginTop: 10 },
   listContainer: { padding: 14, gap: 12, paddingBottom: 40 },
+
+  // Top Actions Row
+  topActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  selectAllBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 14, borderWidth: 1, paddingVertical: 12, paddingHorizontal: 12,
+  },
+  selectAllBtnText: { fontSize: 12, fontWeight: '800' },
+  checkboxSmall: {
+    width: 18, height: 18, borderRadius: 5, borderWidth: 1.5,
+    justifyContent: 'center', alignItems: 'center',
+  },
   importBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     backgroundColor: '#FFC700', borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: 12, paddingHorizontal: 12,
     shadowColor: '#FFC700', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 3 }, shadowRadius: 10, elevation: 2,
   },
-  importBtnText: { color: '#0D0E12', fontSize: 12.5, fontWeight: '900' },
+  importBtnText: { color: '#0D0E12', fontSize: 12, fontWeight: '900' },
   importBtnDisabled: { opacity: 0.55 },
+
+  // Checkbox in Card Header
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+    justifyContent: 'center', alignItems: 'center', marginRight: 2,
+  },
+
+  // Floating Bulk Action Bar
+  bulkActionBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, elevation: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.15, shadowRadius: 8,
+  },
+  bulkActionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bulkSelectedBadge: {
+    backgroundColor: '#FFC700', borderRadius: 12,
+    paddingHorizontal: 9, paddingVertical: 3,
+  },
+  bulkSelectedBadgeText: { fontSize: 11, fontWeight: '900', color: '#0D0E12' },
+  bulkSelectedText: { fontSize: 13, fontWeight: '800' },
+  bulkActionRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bulkDeselectBtn: {
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  bulkDeselectText: { fontSize: 11, fontWeight: '800' },
+  bulkDeleteBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F43F5E', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 8,
+    shadowColor: '#F43F5E', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2,
+  },
+  bulkDeleteText: { fontSize: 11.5, fontWeight: '900', color: '#FFFFFF' },
+
+  // Bulk Modal & Import Summary Modal
+  bulkModalCard: { borderWidth: 1, borderRadius: 22, overflow: 'hidden', width: '100%', maxWidth: 460 },
+  bulkModalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
+  },
+  bulkModalHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 },
+  bulkModalTitle: { fontSize: 15, fontWeight: '900', letterSpacing: -0.2 },
+  bulkModalSub: { fontSize: 10, fontWeight: '600', marginTop: 1 },
+  bulkStatRow: { flexDirection: 'row', gap: 8 },
+  bulkStatCard: { flex: 1, borderRadius: 12, borderWidth: 1, padding: 10, alignItems: 'center' },
+  bulkStatLabel: { fontSize: 7.5, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  bulkStatValue: { fontSize: 18, fontWeight: '900', marginTop: 2 },
+  protectedBox: { gap: 6 },
+  protectedHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  protectedHeaderText: { fontSize: 11.5, fontWeight: '800', color: '#D97706' },
+  protectedListWrap: { borderRadius: 12, borderWidth: 1, padding: 10, gap: 6, maxHeight: 120 },
+  protectedItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  protectedItemName: { fontSize: 11.5, fontWeight: '800', flex: 1, marginRight: 8 },
+  protectedItemStats: { fontSize: 10.5, fontWeight: '700', color: '#D97706' },
+  protectedNoticeText: { fontSize: 10, fontStyle: 'italic', lineHeight: 14 },
+  noEligibleBox: {
+    borderRadius: 12, borderWidth: 1, borderColor: 'rgba(244,63,94,0.3)',
+    backgroundColor: 'rgba(244,63,94,0.08)', padding: 12, alignItems: 'center',
+  },
+  noEligibleText: { fontSize: 11.5, fontWeight: '800', color: '#F43F5E', textAlign: 'center' },
+  eligibleConfirmText: { fontSize: 12, fontWeight: '600', lineHeight: 18 },
+  bulkModalFooter: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1,
+  },
+  importSuccessIcon: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: 'rgba(255,199,0,0.15)', borderWidth: 1, borderColor: 'rgba(255,199,0,0.3)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  importIssuesBox: { gap: 6 },
+  importIssuesList: { borderRadius: 12, borderWidth: 1, padding: 10, gap: 6, maxHeight: 150 },
+  importIssueItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  importIssueText: { fontSize: 11, fontWeight: '600', flex: 1, lineHeight: 16 },
+  importCloseBtn: {
+    backgroundColor: '#FFC700', borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10,
+  },
+  importCloseBtnText: { color: '#0D0E12', fontSize: 12, fontWeight: '900' },
+
+  // Pagination Card
+  paginationCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 6,
+    marginBottom: 8,
+    gap: 10,
+  },
+  paginationInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  paginationCountText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  pageSizeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  pageSizeLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  pageSizeChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  pageSizeChipText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  paginationNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    gap: 8,
+  },
+  pageNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  pageNavBtnDisabled: {
+    opacity: 0.4,
+  },
+  pageNavBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pageNumbersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  pageNumBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pageNumText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pageIndicatorPill: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pageIndicatorText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
   emptyContainer: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 48, gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: '900' },
   emptySub: { fontSize: 12, fontWeight: '600', textAlign: 'center' },

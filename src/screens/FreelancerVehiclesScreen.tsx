@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { freelancerService } from '../services/freelancerService';
+import { authService } from '../services/authService';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 
@@ -82,7 +83,9 @@ export const FreelancerVehiclesScreen: React.FC<FreelancerVehiclesScreenProps> =
 
     const fetchInspections = useCallback(async () => {
     try {
-      const res = await freelancerService.getMyInspections();
+      const session = await authService.getStoredSession();
+      const freelancerId = (session as any)?.freelancerId || session?.id;
+      const res = await freelancerService.getMyInspections(freelancerId ? { freelancerId } : undefined);
       const rawList = Array.isArray(res) ? res : (res?.data || res?.inspections || []);
       if (Array.isArray(rawList)) {
         const processed = rawList.map((item: any) => ({

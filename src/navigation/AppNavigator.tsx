@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TouchableOpacity, View, StyleSheet, Text, Image, StatusBar, BackHandler, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, View, StyleSheet, Text, Image, StatusBar, BackHandler } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Menu, Sun, Moon } from 'lucide-react-native';
+import { SplashScreen } from '../screens/SplashScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { AboutScreen } from '../screens/AboutScreen';
 import { WhyChooseScreen } from '../screens/WhyChooseScreen';
@@ -56,8 +57,7 @@ const NavigationContent = () => {
   const lastBackPress = useRef(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [currentRoute, setCurrentRoute] = useState('Home');
-  const [isInitializingSession, setIsInitializingSession] = useState(true);
-  const [initialRoute, setInitialRoute] = useState<string>('Home');
+  const [initialRoute] = useState<string>('Splash');
   const navigationRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -67,24 +67,31 @@ const NavigationContent = () => {
         const session = await authService.getStoredSession();
         if (isMounted && session && session.token) {
           const role = (session.role || '').toLowerCase();
+          let target = 'DealerDashboard';
           if (role === 'admin') {
-            setInitialRoute('AdminDashboard');
+            target = 'AdminDashboard';
           } else if (role === 'inspector') {
-            setInitialRoute('InspectorDashboard');
+            target = 'InspectorDashboard';
           } else if (role === 'freelancer') {
-            setInitialRoute('FreelancerDashboard');
+            target = 'FreelancerDashboard';
           } else if (role === 'dealer') {
-            setInitialRoute('DealerMarketplace');
-          } else {
-            setInitialRoute('DealerDashboard');
+            target = 'DealerMarketplace';
           }
+
+          const navigateToDashboard = () => {
+            if (navigationRef.isReady()) {
+              navigationRef.reset({
+                index: 0,
+                routes: [{ name: target as any }],
+              });
+            } else {
+              setTimeout(navigateToDashboard, 40);
+            }
+          };
+          navigateToDashboard();
         }
       } catch (error) {
         console.error('Session restore error:', error);
-      } finally {
-        if (isMounted) {
-          setIsInitializingSession(false);
-        }
       }
     };
 
@@ -109,6 +116,10 @@ const NavigationContent = () => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       const currentRoute = navigationRef.getCurrentRoute() as any;
+      if (currentRoute?.name === 'Splash') {
+        // Back press behavior handled inside SplashScreen
+        return false;
+      }
       if (currentRoute?.name === 'Login' || currentRoute?.name === 'Register') {
         (navigationRef as any).navigate('Home');
         return true;
@@ -127,26 +138,6 @@ const NavigationContent = () => {
     });
     return () => backHandler.remove();
   }, [navigationRef, showToast]);
-
-  if (isInitializingSession) {
-    return (
-      <View style={[styles.splashContainer, { backgroundColor: colors.background }]}>
-        <StatusBar
-          barStyle={theme === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-          translucent={false}
-        />
-        <View style={styles.splashContent}>
-          <View style={styles.splashLogoCircle}>
-            <Image source={require('../assets/logo.png')} style={styles.splashLogoImage} resizeMode="cover" />
-          </View>
-          <Text style={[styles.splashBrandTitle, { color: colors.foreground }]}>CARYANAM</Text>
-          <Text style={[styles.splashBrandSub, { color: colors.mutedForeground }]}>INSPECTION & BIDDING</Text>
-          <ActivityIndicator size="large" color="#FFC700" style={{ marginTop: 28 }} />
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -218,9 +209,16 @@ const NavigationContent = () => {
           }}
         >
           <Stack.Screen
-            name="Home"
-            component={HomeScreen}
+            name="Splash"
+            component={SplashScreen}
+            options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="Home"
+            options={{ headerShown: false }}
+          >
+            {props => <HomeScreen {...props} onOpenMenu={() => setDrawerOpen(true)} />}
+          </Stack.Screen>
           <Stack.Screen
             name="About"
             component={AboutScreen}
@@ -506,48 +504,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  splashContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  splashContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  splashLogoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 199, 0, 0.9)',
-    backgroundColor: '#0D0E12',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#FFC700',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  splashLogoImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  splashBrandTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 2,
-    lineHeight: 26,
-    marginBottom: 4,
-  },
-  splashBrandSub: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
   },
 });
 

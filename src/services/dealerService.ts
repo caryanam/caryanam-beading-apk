@@ -13,7 +13,7 @@ export const dealerService = {
 
   // Get freelancer vehicles
   async getFreelancerVehicles() {
-    const res = await apiClient.get('/api/freelancer/inspection');
+    const res = await apiClient.get('/api/freelancer/inspection?all=true');
     return res.data;
   },
 

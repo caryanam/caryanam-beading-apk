@@ -9,11 +9,13 @@ import {
   TextInput,
   Dimensions,
   Animated,
+  StatusBar,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ShieldCheck,
   ArrowRight,
-  ClipboardCheck,
   Zap,
   Trophy,
   Mail,
@@ -35,14 +37,45 @@ import {
   ChevronRight,
   Activity,
   RefreshCw,
+  Menu,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { CorporateFooter } from '../components/CorporateFooter';
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = Math.round(width * 1.45);
+const SINGLE_CARD_IMG_HEIGHT = Math.round(((width - 38) / 3) / 1.25);
+
+const ROLE_CARDS_DATA = [
+  {
+    id: 'dealer',
+    title: 'Dealer Login',
+    desc: 'Participate in live auctions, bid on verified vehicles and grow your business.',
+    image: require('../assets/dealer.png'),
+    btnBg: '#FFB800',
+    borderColor: 'rgba(255, 184, 0, 0.45)',
+  },
+  {
+    id: 'freelancer',
+    title: 'Freelancer Login',
+    desc: 'List vehicles quickly, add basic details and manage your inventory.',
+    image: require('../assets/freelancer.png'),
+    btnBg: '#60A5FA',
+    borderColor: 'rgba(96, 165, 250, 0.45)',
+  },
+  {
+    id: 'inspector',
+    title: 'Inspector Login',
+    desc: 'Perform 140+ point inspections and submit digital reports.',
+    image: require('../assets/inpsector.png'),
+    btnBg: '#C084FC',
+    borderColor: 'rgba(192, 132, 252, 0.45)',
+  },
+];
 
 interface HomeScreenProps {
   navigation: any;
+  onOpenMenu?: () => void;
 }
 
 // Sample auction data for live carousel
@@ -155,178 +188,459 @@ const INSPECTION_CATEGORIES = [
   },
 ];
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation, onOpenMenu }) => {
   const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const isDark = theme === 'dark';
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-      {/* Hero Banner Section (Dark Premium Car Background) */}
-      <View style={styles.heroSection}>
-        {/* Dark Luxury Car Background Image */}
+      <StatusBar translucent backgroundColor="transparent" barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* Hero Banner Section (Matches Design Mockup with Natural Daylight hero-car.png) */}
+      <View style={[styles.heroSection, { backgroundColor: isDark ? '#0F121A' : '#F3F4F6' }]}>
+        {/* Full Vibrant Hero Image */}
         <Image
           source={require('../assets/hero-car.png')}
           style={styles.heroBgImage}
           resizeMode="cover"
         />
-        <View style={styles.heroDarkOverlay} />
 
-        <View style={styles.heroContentWrapper}>
-          {/* Gold Outline Pill Badge */}
-          <View style={styles.badge}>
-            <ShieldCheck size={14} color="#FFC700" style={{ marginRight: 6 }} />
-            <Text style={styles.badgeText}>India's Premier B2B Car Bidding Platform</Text>
+        {/* Subtle Dark Scrim in Dark Theme for Perfect Readability */}
+        {isDark && (
+          <View
+            style={[styles.heroDarkScrim, { borderBottomLeftRadius: 36, borderBottomRightRadius: 36 }]}
+            pointerEvents="none"
+          />
+        )}
+
+        {/* Top Header Bar Sitting Directly Over Hero Image */}
+        <View style={[styles.headerBar, { paddingTop: Math.max(insets.top + 6, 16) }]}>
+          <View style={styles.headerLeftBrand}>
+            <View style={styles.headerLogoCircle}>
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.headerLogoImg}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.headerBrandTextWrap}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.headerBrandTitleBlack, { color: isDark ? '#FFFFFF' : '#0D0E12' }]}>
+                  CARYANAM{' '}
+                </Text>
+                <Text style={styles.headerBrandTitleGold}>LIVE</Text>
+              </View>
+              <Text style={[styles.headerBrandSub, { color: isDark ? '#CBD5E1' : '#4B5563' }]}>
+                INSPECTION & BIDDING
+              </Text>
+            </View>
           </View>
 
-          {/* Hero Main Headline */}
-          <Text style={styles.heroTitle}>
-            Certified Used Car{'\n'}
-            Auctions{'\n'}
-            <Text style={styles.highlightText}>Built For Dealer Growth.</Text>
+          <View style={styles.headerRightButtons}>
+            <TouchableOpacity
+              style={[
+                styles.circleActionBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(15, 18, 26, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+                  borderColor: isDark ? 'rgba(255, 199, 0, 0.4)' : 'rgba(0, 0, 0, 0.08)',
+                },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => onOpenMenu?.()}
+              accessibilityLabel="Open menu"
+            >
+              <Menu size={20} color={isDark ? '#FFC700' : '#0D0E12'} strokeWidth={2.3} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Left-Aligned Hero Content */}
+        <View style={styles.heroContentWrapper}>
+          {/* Gold Outline Pill Badge */}
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: isDark ? 'rgba(255, 199, 0, 0.15)' : 'rgba(254, 243, 199, 0.95)',
+                borderColor: isDark ? 'rgba(255, 199, 0, 0.4)' : 'rgba(217, 119, 6, 0.35)',
+              },
+            ]}
+          >
+            <ShieldCheck size={14} color={isDark ? '#FFC700' : '#D97706'} strokeWidth={2.4} style={{ marginRight: 6 }} />
+            <Text style={[styles.badgeText, { color: isDark ? '#FFC700' : '#78350F' }]}>
+              India's Premier B2B Car Bidding Platform
+            </Text>
+          </View>
+
+          {/* Hero Main Headline - Single Line */}
+          <Text
+            style={[styles.heroTitle, { color: isDark ? '#FFFFFF' : '#0D0E12' }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            Certified Used Car Auctions
+          </Text>
+
+          {/* Cursive Subtitle - Single Line */}
+          <Text
+            style={[styles.heroCursiveSubtitle, { color: isDark ? '#FBBF24' : '#D97706' }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            Built For Dealer Growth.
           </Text>
 
           {/* Hero Subtitle Description */}
-          <Text style={styles.heroDescription}>
-            Access 140+ point digital inspection reports, participate in real-time 30-minute live auctions, and acquire pre-owned vehicles with complete transparency.
+          <Text style={[styles.heroDescription, { color: isDark ? '#E2E8F0' : '#374151' }]}>
+            India's premier B2B car auction platform featuring{' '}
+            <Text style={[styles.heroDescHighlight, { color: isDark ? '#FFC700' : '#0D0E12' }]}>
+              freelancer vehicle 15-min live auctions
+            </Text>
+            , certified{' '}
+            <Text style={[styles.heroDescHighlight, { color: isDark ? '#FFC700' : '#0D0E12' }]}>
+              140+ inspection points
+            </Text>
+            , and real-time dealer bidding.
           </Text>
 
-          {/* Hero Capsule Button Group */}
+          {/* Hero Button Group - Enter Bidding Portal Button */}
           <View style={styles.heroButtonGroup}>
             <TouchableOpacity
-              style={styles.primaryBtn}
+              style={[
+                styles.primaryBtn,
+                {
+                  backgroundColor: isDark ? '#FFC700' : '#FFFFFF',
+                  borderColor: isDark ? '#FFC700' : 'rgba(0, 0, 0, 0.08)',
+                },
+              ]}
               activeOpacity={0.85}
               onPress={() => navigation.navigate('Login')}
             >
               <Text style={styles.primaryBtnText}>Enter Bidding Portal</Text>
-              <ArrowRight size={18} color="#0D0E12" style={{ marginLeft: 8 }} />
+              <ArrowRight size={17} color="#0D0E12" strokeWidth={2.5} style={{ marginLeft: 7 }} />
             </TouchableOpacity>
+          </View>
+        </View>
+      </View>
 
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('WhyChoose')}
+      {/* 4 Standalone Telemetry Stats Cards Straddling Half on Image & Half Outside */}
+      <View style={styles.statsCardContainer}>
+        {[
+          { val: '2,000+', label: 'INSPECTED\nVEHICLES', icon: Car },
+          { val: '500+', label: 'VERIFIED\nDEALERS', icon: Users },
+          { val: '30-Min', label: 'LIVE AUCTION\nWINDOWS', icon: Clock },
+          { val: '15-Min', label: 'FREELANCER VEHICLE\nLIVE AUCTION', icon: Zap },
+        ].map((stat, i) => {
+          const IconComp = stat.icon;
+          const isDark = theme === 'dark';
+          return (
+            <View
+              key={i}
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: isDark ? '#141722' : '#FFFFFF',
+                  borderColor: isDark ? 'rgba(255, 199, 0, 0.32)' : 'rgba(254, 240, 138, 0.75)',
+                },
+              ]}
             >
-              <Text style={styles.secondaryBtnText}>Why Caryanam Live</Text>
+              {/* Subtle Decorative Background Watermark Icon */}
+              <View style={styles.statWatermarkWrap} pointerEvents="none">
+                <IconComp
+                  size={48}
+                  color={isDark ? '#FFC700' : '#F59E0B'}
+                  strokeWidth={1.4}
+                  opacity={isDark ? 0.18 : 0.14}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.statValText,
+                  { color: isDark ? '#FFC700' : '#D97706' },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {stat.val}
+              </Text>
+              <Text
+                style={[
+                  styles.statLabelText,
+                  { color: isDark ? '#E2E8F0' : '#1E293B' },
+                ]}
+                numberOfLines={2}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {stat.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Three Dedicated Role Portal Cards Section (Matches Mockup) */}
+      <View style={styles.rolePortalsSection}>
+        <View style={styles.rolePortalsHeader}>
+          <View
+            style={[
+              styles.rolePortalsBadge,
+              {
+                backgroundColor: isDark ? 'rgba(255, 199, 0, 0.12)' : 'rgba(254, 243, 199, 0.95)',
+                borderColor: isDark ? 'rgba(255, 199, 0, 0.35)' : 'rgba(217, 119, 6, 0.35)',
+              },
+            ]}
+          >
+            <Sparkles size={13} color={isDark ? '#FFC700' : '#D97706'} style={{ marginRight: 6 }} />
+            <Text style={[styles.rolePortalsBadgeText, { color: isDark ? '#FFC700' : '#92400E' }]}>
+              DEDICATED PORTALS
+            </Text>
+          </View>
+          <Text style={[styles.rolePortalsTitle, { color: colors.foreground }]}>
+            Choose Your Dedicated Portal
+          </Text>
+          <Text style={[styles.rolePortalsSubtitle, { color: colors.mutedForeground }]}>
+            Engineered workflows tailored for verified dealers, freelancers, and certified inspectors.
+          </Text>
+        </View>
+
+        {/* 3 Dedicated Role Portal Cards in One View (No Scroll) */}
+        <View style={styles.roleCardsRow}>
+          {ROLE_CARDS_DATA.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.roleCard,
+                {
+                  borderColor: isDark ? item.btnBg + '55' : item.borderColor,
+                  backgroundColor: isDark ? '#141722' : '#FFFFFF',
+                },
+              ]}
+              activeOpacity={0.92}
+              onPress={() => navigation.navigate('Login')}
+            >
+              {/* Top Artwork Image with Embedded Theme Icon */}
+              <View
+                style={[
+                  styles.roleCardImageWrap,
+                  {
+                    height: SINGLE_CARD_IMG_HEIGHT,
+                    backgroundColor: isDark ? '#0D0E12' : '#F3F4F6',
+                  },
+                ]}
+              >
+                <Image
+                  source={item.image}
+                  style={styles.roleCardImage}
+                  resizeMode="cover"
+                />
+              </View>
+
+              {/* Bottom Card Content */}
+              <View style={styles.roleCardBody}>
+                {/* Decorative Bottom-Left Arc */}
+                <View style={[styles.cardCornerAccent, { borderColor: item.btnBg }]} />
+
+                <Text
+                  style={[styles.roleCardTitle, { color: colors.foreground }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
+                  {item.title}
+                </Text>
+                <Text
+                  style={[styles.roleCardDesc, { color: isDark ? '#94A3B8' : colors.mutedForeground }]}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                >
+                  {item.desc}
+                </Text>
+
+                {/* Bottom Row with Colored Circular Arrow Button */}
+                <View style={styles.roleCardBottomRow}>
+                  <View style={[styles.roleCardArrowBtn, { backgroundColor: item.btnBg }]}>
+                    <ArrowRight size={13} color="#0D0E12" strokeWidth={2.4} />
+                  </View>
+                </View>
+              </View>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
       </View>
 
-      {/* Telemetry Stats Section */}
-      <View style={[styles.statsSection, { backgroundColor: theme === 'dark' ? '#090A0E' : '#F8F9FA' }]}>
-        <View style={styles.statsRowsWrapper}>
-          {/* Row 1 */}
-          <View style={styles.statsRow}>
-            {[
-              { val: '25,000+', label: 'INSPECTED VEHICLES', icon: Car },
-              { val: '1,500+', label: 'VERIFIED DEALERS', icon: Users },
-            ].map((stat, i) => {
-              const IconComp = stat.icon;
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.statGlassCard,
-                    {
-                      backgroundColor: theme === 'dark' ? 'rgba(21, 24, 36, 0.7)' : '#FFFFFF',
-                      borderColor: theme === 'dark' ? 'rgba(255, 199, 0, 0.25)' : 'rgba(255, 199, 0, 0.35)',
-                    },
-                  ]}
-                >
-                  <View style={styles.statIconBadge}>
-                    <IconComp size={16} color="#FFC700" />
-                  </View>
-                  <Text style={styles.statValText}>{stat.val}</Text>
-                  <Text style={[styles.statLabelText, { color: colors.mutedForeground }]}>
-                    {stat.label}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Row 2 */}
-          <View style={styles.statsRow}>
-            {[
-              { val: '30-Min', label: 'LIVE AUCTION WINDOWS', icon: Clock },
-              { val: '100%', label: 'INSPECTION AUTHENTICITY', icon: ShieldCheck },
-            ].map((stat, i) => {
-              const IconComp = stat.icon;
-              return (
-                <View
-                  key={i}
-                  style={[
-                    styles.statGlassCard,
-                    {
-                      backgroundColor: theme === 'dark' ? 'rgba(21, 24, 36, 0.7)' : '#FFFFFF',
-                      borderColor: theme === 'dark' ? 'rgba(255, 199, 0, 0.25)' : 'rgba(255, 199, 0, 0.35)',
-                    },
-                  ]}
-                >
-                  <View style={styles.statIconBadge}>
-                    <IconComp size={16} color="#FFC700" />
-                  </View>
-                  <Text style={styles.statValText}>{stat.val}</Text>
-                  <Text style={[styles.statLabelText, { color: colors.mutedForeground }]}>
-                    {stat.label}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-
-      {/* Platform Innovations Feature Spotlight Section */}
-      <View style={[styles.innovationsSection, { backgroundColor: theme === 'dark' ? '#0D0E12' : '#FFFFFF' }]}>
+      {/* Platform Innovations Feature Spotlight Section (Matches Mockup) */}
+      <View style={[styles.innovationsSection, { backgroundColor: isDark ? '#0B0D13' : '#FFFFFF' }]}>
         <View style={styles.innovationsHeader}>
-          <Text style={styles.innovationsSubBadge}>PLATFORM INNOVATIONS</Text>
+          <View style={styles.innovationsEyebrowRow}>
+            <View style={[styles.innovationsEyebrowLine, { backgroundColor: isDark ? '#FFC700' : '#F59E0B' }]} />
+            <Text style={[styles.innovationsSubBadge, { color: isDark ? '#FFC700' : '#F59E0B' }]}>
+              PLATFORM INNOVATIONS
+            </Text>
+            <View style={[styles.innovationsEyebrowLine, { backgroundColor: isDark ? '#FFC700' : '#F59E0B' }]} />
+          </View>
           <Text style={[styles.innovationsTitle, { color: colors.foreground }]}>
-            Everything Needed for Seamless Vehicle Bidding
+            Everything Needed for Seamless{'\n'}Vehicle Bidding
           </Text>
         </View>
 
         <View style={styles.innovationsCardsContainer}>
-          {[
-            {
-              icon: ClipboardCheck,
-              title: '140+ Point Digital Inspections',
-              desc: 'Certified evaluations covering exterior body panels, engine mechanics, electrical systems, OBD diagnostics, tyre tread depths, and mandatory photo proof.',
-            },
-            {
-              icon: Zap,
-              title: 'Real-Time WebSocket Bidding',
-              desc: 'Sub-second bid synchronization with live countdown timers, bid increment controls, and instant leaderboards across all dealer screens.',
-            },
-            {
-              icon: Award,
-              title: 'Verified Winner Logs & Transparency',
-              desc: 'Complete transparency with verified winner records, bid histories, and structured admin approval workflows.',
-            },
-          ].map((item, idx) => {
-            const IconComponent = item.icon;
-            return (
-              <View
-                key={idx}
-                style={[
-                  styles.innovationCard,
-                  {
-                    backgroundColor: theme === 'dark' ? '#141722' : '#F9FAFB',
-                    borderColor: theme === 'dark' ? 'rgba(255, 199, 0, 0.25)' : 'rgba(255, 199, 0, 0.4)',
-                  },
-                ]}
-              >
-                <View style={styles.innovationIconCircle}>
-                  <IconComponent size={22} color="#FFC700" />
-                </View>
-                <Text style={[styles.innovationCardTitle, { color: colors.foreground }]}>
-                  {item.title}
-                </Text>
-                <Text style={[styles.innovationCardDesc, { color: colors.mutedForeground }]}>
-                  {item.desc}
-                </Text>
+          {/* Card 1: 140+ Point Digital Inspections */}
+          <TouchableOpacity
+            style={[
+              styles.innovationCard,
+              {
+                backgroundColor: isDark ? '#141722' : '#FFFDF5',
+                borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#FDE68A',
+              },
+            ]}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('Login')}
+          >
+            {/* Left Amber Squircle Icon */}
+            <View
+              style={[
+                styles.innovationIconSquircle,
+                {
+                  backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#FEF08A',
+                  borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : 'transparent',
+                  borderWidth: isDark ? 1 : 0,
+                },
+              ]}
+            >
+              <View style={styles.docIconWrap}>
+                <View style={styles.docFoldCorner} />
+                <View style={[styles.docLine, { width: '60%' }]} />
+                <View style={[styles.docLine, { width: '85%' }]} />
+                <View style={[styles.docLine, { width: '85%' }]} />
               </View>
-            );
-          })}
+            </View>
+
+            {/* Center Content */}
+            <View style={styles.innovationCardContent}>
+              <Text style={[styles.innovationCardTitle, { color: colors.foreground }]}>
+                140+ Point Digital Inspections
+              </Text>
+              <Text style={[styles.innovationCardDesc, { color: isDark ? '#94A3B8' : '#4B5563' }]}>
+                Certified evaluations covering exterior body panels, engine mechanics, electrical systems, OBD diagnostics, tyre tread depths, and mandatory photo proof.
+              </Text>
+            </View>
+
+            {/* Right Circular Button */}
+            <View
+              style={[
+                styles.innovationArrowBtn,
+                { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7' },
+              ]}
+            >
+              <ArrowRight size={17} color={isDark ? '#FFC700' : '#92400E'} strokeWidth={2.4} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Card 2: Real-Time WebSocket Bidding */}
+          <TouchableOpacity
+            style={[
+              styles.innovationCard,
+              {
+                backgroundColor: isDark ? '#141722' : '#F0F9FF',
+                borderColor: isDark ? 'rgba(37, 99, 235, 0.4)' : '#BAE6FD',
+              },
+            ]}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('Login')}
+          >
+            {/* Left Blue Squircle Icon */}
+            <View
+              style={[
+                styles.innovationIconSquircle,
+                {
+                  backgroundColor: isDark ? 'rgba(37, 99, 235, 0.16)' : '#DBEAFE',
+                  borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : 'transparent',
+                  borderWidth: isDark ? 1 : 0,
+                },
+              ]}
+            >
+              <Zap size={28} color="#2563EB" fill="#2563EB" strokeWidth={1} />
+            </View>
+
+            {/* Center Content */}
+            <View style={styles.innovationCardContent}>
+              <Text style={[styles.innovationCardTitle, { color: colors.foreground }]}>
+                Real-Time WebSocket Bidding
+              </Text>
+              <Text style={[styles.innovationCardDesc, { color: isDark ? '#94A3B8' : '#4B5563' }]}>
+                Sub-second bid synchronization with live countdown timers, bid increment controls, and instant leaderboards across all dealer screens.
+              </Text>
+            </View>
+
+            {/* Right Circular Button */}
+            <View
+              style={[
+                styles.innovationArrowBtn,
+                { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#DBEAFE' },
+              ]}
+            >
+              <ArrowRight size={17} color={isDark ? '#60A5FA' : '#1D4ED8'} strokeWidth={2.4} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Card 3: Verified Winner Logs & Transparency */}
+          <TouchableOpacity
+            style={[
+              styles.innovationCard,
+              {
+                backgroundColor: isDark ? '#141722' : '#FAF5FF',
+                borderColor: isDark ? 'rgba(147, 51, 234, 0.4)' : '#E9D5FF',
+              },
+            ]}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('Login')}
+          >
+            {/* Left Purple Squircle Icon */}
+            <View
+              style={[
+                styles.innovationIconSquircle,
+                {
+                  backgroundColor: isDark ? 'rgba(147, 51, 234, 0.16)' : '#F3E8FF',
+                  borderColor: isDark ? 'rgba(147, 51, 234, 0.35)' : 'transparent',
+                  borderWidth: isDark ? 1 : 0,
+                },
+              ]}
+            >
+              <View style={styles.awardIconWrap}>
+                <Award size={30} color="#9333EA" fill="#9333EA" strokeWidth={1.2} />
+                <View style={styles.awardStarWrap}>
+                  <Star size={11} color="#FFFFFF" fill="#FFFFFF" strokeWidth={1} />
+                </View>
+              </View>
+            </View>
+
+            {/* Center Content */}
+            <View style={styles.innovationCardContent}>
+              <Text style={[styles.innovationCardTitle, { color: colors.foreground }]}>
+                Verified Winner Logs & Transparency
+              </Text>
+              <Text style={[styles.innovationCardDesc, { color: isDark ? '#94A3B8' : '#4B5563' }]}>
+                Complete transparency with verified winner records, bid histories, and structured admin approval workflows.
+              </Text>
+            </View>
+
+            {/* Right Circular Button */}
+            <View
+              style={[
+                styles.innovationArrowBtn,
+                { backgroundColor: isDark ? 'rgba(147, 51, 234, 0.2)' : '#F3E8FF' },
+              ]}
+            >
+              <ArrowRight size={17} color={isDark ? '#C084FC' : '#7E22CE'} strokeWidth={2.4} />
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -342,61 +656,161 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     position: 'relative',
-    minHeight: SCREEN_HEIGHT - 70,
-    justifyContent: 'center',
-    backgroundColor: '#0D0E12',
+    width: '100%',
+    height: HERO_HEIGHT,
+    backgroundColor: '#F3F4F6',
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
     overflow: 'hidden',
   },
   heroBgImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    opacity: 0.5,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
   },
-  heroDarkOverlay: {
+  heroDarkScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(13, 14, 18, 0.65)',
+    backgroundColor: 'rgba(13, 14, 18, 0.45)',
+    zIndex: 1,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingBottom: 10,
+    zIndex: 10,
+  },
+  headerLeftBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  headerLogoCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0D0E12',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 199, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerLogoImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  headerBrandTextWrap: {
+    justifyContent: 'center',
+  },
+  headerBrandTitleBlack: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0D0E12',
+    letterSpacing: 0.5,
+  },
+  headerBrandTitleGold: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFB800',
+    letterSpacing: 0.5,
+  },
+  headerBrandSub: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#4B5563',
+    letterSpacing: 0.8,
+    marginTop: 1,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  circleActionBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   heroContentWrapper: {
-    paddingHorizontal: 22,
-    paddingTop: 32,
-    paddingBottom: 40,
-    justifyContent: 'center',
-    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    zIndex: 5,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(50, 42, 10, 0.65)',
-    borderColor: 'rgba(255, 199, 0, 0.45)',
+    backgroundColor: 'rgba(254, 243, 199, 0.95)',
+    borderColor: 'rgba(217, 119, 6, 0.35)',
     borderWidth: 1,
-    borderRadius: 24,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    marginBottom: 20,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 1,
   },
   badgeText: {
-    color: '#FFC700',
-    fontSize: 12,
-    fontWeight: '800',
+    color: '#78350F',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   heroTitle: {
-    fontSize: 32,
+    fontSize: 21,
     fontWeight: '900',
-    lineHeight: 40,
-    color: '#FFFFFF',
-    marginBottom: 16,
+    color: '#0D0E12',
+    marginBottom: 2,
+    letterSpacing: -0.3,
+  },
+  heroCursiveSubtitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#D97706',
+    fontFamily: Platform.select({
+      ios: 'Snell Roundhand',
+      android: 'serif',
+      default: 'serif',
+    }),
+    fontStyle: 'italic',
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   highlightText: {
-    color: '#FFC700',
+    color: '#FFB800',
   },
   heroDescription: {
-    fontSize: 13.5,
-    lineHeight: 21,
+    fontSize: 12.5,
+    lineHeight: 18.5,
     fontWeight: '500',
-    color: '#D1D5DB',
-    marginBottom: 28,
+    color: '#374151',
+    marginBottom: 16,
+    maxWidth: '74%',
+  },
+  heroDescHighlight: {
+    fontWeight: '800',
+    color: '#0D0E12',
   },
   searchBox: {
     borderRadius: 18,
@@ -455,153 +869,313 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   heroButtonGroup: {
-    flexDirection: 'column',
-    gap: 12,
+    alignSelf: 'flex-start',
   },
   primaryBtn: {
-    backgroundColor: '#FFC700',
-    borderRadius: 28,
-    paddingVertical: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 11,
+    paddingHorizontal: 22,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FFC700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   primaryBtnText: {
     color: '#0D0E12',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  secondaryBtn: {
-    backgroundColor: '#161820',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 28,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  secondaryBtnText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
-  statsSection: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 199, 0, 0.15)',
-  },
-  statsRowsWrapper: {
-    gap: 12,
-  },
-  statsRow: {
+  statsCardContainer: {
+    marginHorizontal: 12,
+    marginTop: -46,
+    marginBottom: 20,
     flexDirection: 'row',
-    gap: 12,
     justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 8,
+    zIndex: 20,
   },
-  statGlassCard: {
+  statCard: {
     flex: 1,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: 'rgba(254, 240, 138, 0.75)',
+    paddingVertical: 14,
+    paddingHorizontal: 2,
     alignItems: 'center',
-    shadowColor: '#FFC700',
+    justifyContent: 'center',
+    minHeight: 92,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  statIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 199, 0, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 199, 0, 0.3)',
+  statWatermarkWrap: {
+    position: 'absolute',
+    right: -8,
+    bottom: -8,
+    opacity: 0.14,
   },
   statValText: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '900',
-    color: '#FFC700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    color: '#D97706',
     textAlign: 'center',
+    marginBottom: 4,
   },
   statLabelText: {
-    fontSize: 9.5,
+    fontSize: 7.4,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    color: '#1E293B',
     textAlign: 'center',
+    lineHeight: 10,
+    letterSpacing: 0.1,
     textTransform: 'uppercase',
   },
-  innovationsSection: {
-    paddingVertical: 32,
+  rolePortalsSection: {
+    paddingTop: 12,
+    paddingBottom: 26,
+  },
+  rolePortalsHeader: {
     paddingHorizontal: 18,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255, 199, 0, 0.15)',
+    marginBottom: 16,
+  },
+  rolePortalsBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(254, 243, 199, 0.95)',
+    borderColor: 'rgba(217, 119, 6, 0.35)',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  rolePortalsBadgeText: {
+    color: '#92400E',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  rolePortalsTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  rolePortalsSubtitle: {
+    fontSize: 13,
+    lineHeight: 18.5,
+    fontWeight: '500',
+  },
+  roleCardsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    gap: 7,
+  },
+  roleCard: {
+    flex: 1,
+    height: 215,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  roleCardImageWrap: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+  },
+  roleCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  roleCardBody: {
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+    position: 'relative',
+    overflow: 'hidden',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cardCornerAccent: {
+    position: 'absolute',
+    bottom: -16,
+    left: -16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    opacity: 0.6,
+  },
+  roleCardTitle: {
+    fontSize: 11.5,
+    fontWeight: '900',
+    marginBottom: 3,
+    letterSpacing: -0.2,
+  },
+  roleCardDesc: {
+    fontSize: 8.8,
+    lineHeight: 12,
+    fontWeight: '500',
+    height: 48,
+  },
+  roleCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  roleCardArrowBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  innovationsSection: {
+    paddingTop: 28,
+    paddingBottom: 36,
+    paddingHorizontal: 16,
   },
   innovationsHeader: {
     alignItems: 'center',
     marginBottom: 22,
+    paddingHorizontal: 12,
+  },
+  innovationsEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  innovationsEyebrowLine: {
+    width: 32,
+    height: 1.5,
+    backgroundColor: '#F59E0B',
+    borderRadius: 1,
   },
   innovationsSubBadge: {
-    color: '#FFC700',
-    fontSize: 11,
+    color: '#F59E0B',
+    fontSize: 11.5,
     fontWeight: '900',
-    letterSpacing: 2,
-    marginBottom: 8,
+    letterSpacing: 1.6,
     textAlign: 'center',
   },
   innovationsTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 30,
+    letterSpacing: -0.4,
   },
   innovationsCardsContainer: {
     gap: 16,
   },
   innovationCard: {
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 22,
     borderWidth: 1.5,
-    padding: 20,
-    shadowColor: '#FFC700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  innovationIconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255, 199, 0, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 199, 0, 0.35)',
+  innovationIconSquircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginRight: 14,
+  },
+  docIconWrap: {
+    width: 27,
+    height: 33,
+    backgroundColor: '#F59E0B',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  docFoldCorner: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderBottomLeftRadius: 3,
+    backgroundColor: '#D97706',
+  },
+  docLine: {
+    height: 2.4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    marginVertical: 1.8,
+  },
+  awardIconWrap: {
+    width: 34,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  awardStarWrap: {
+    position: 'absolute',
+    top: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  innovationCardContent: {
+    flex: 1,
+    paddingRight: 8,
   },
   innovationCardTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 8,
-    lineHeight: 22,
+    fontSize: 15.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    marginBottom: 5,
+    lineHeight: 20,
   },
   innovationCardDesc: {
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 19,
+    fontSize: 12.2,
+    lineHeight: 17.5,
+    fontWeight: '400',
+  },
+  innovationArrowBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   activityTicker: {
     borderTopWidth: 1,
@@ -842,28 +1416,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     marginRight: 4,
-  },
-
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statCard: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statVal: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFC700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 10.5,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   inspectionSection: {
     paddingHorizontal: 18,

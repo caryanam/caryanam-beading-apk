@@ -650,16 +650,16 @@ export const DealerFreelancerVehicleDetailScreen: React.FC<DealerFreelancerVehic
   const specs = useMemo(() => {
     if (!vehicle) return [];
     return [
-      { label: 'REGISTRATION YEAR', value: vehicle.regYear && vehicle.regYear !== 'null' && vehicle.regYear !== 'undefined' ? vehicle.regYear : 'N/A', icon: CalendarDays },
-      { label: 'OWNERSHIP', value: String(vehicle.ownership || '1st Owner'), icon: User },
-      { label: 'MANUFACTURING', value: String(vehicle.year || 'N/A'), icon: Car },
-      { label: 'VARIANT & TRIM', value: vehicle.variant || 'Standard', icon: Cog },
-      { label: 'FUEL TYPE', value: vehicle.fuel || 'N/A', icon: Fuel },
-      { label: 'TRANSMISSION', value: vehicle.transmission || 'N/A', icon: Settings2 },
-      { label: 'ODOMETER', value: vehicle.odometer ? `${Number(vehicle.odometer).toLocaleString('en-IN')} km` : 'N/A', icon: Gauge },
-      { label: 'INSURANCE STATUS', value: vehicle.insuranceStatus || 'Valid', icon: ShieldCheck },
-      { label: 'LOCATION', value: vehicle.location || 'N/A', icon: MapPin },
-      { label: 'BASE PRICE', value: `₹${Number(vehicle.basePrice || 0).toLocaleString('en-IN')}`, icon: TrendingUp },
+      { label: 'Registration Year', value: vehicle.regYear && vehicle.regYear !== 'null' && vehicle.regYear !== 'undefined' ? vehicle.regYear : 'N/A', icon: CalendarDays },
+      { label: 'Ownership', value: String(vehicle.ownership || '1st Owner'), icon: User },
+      { label: 'Manufacturing Year', value: String(vehicle.year || 'N/A'), icon: CalendarDays },
+      { label: 'Variant & Trim', value: vehicle.variant || 'Standard', icon: Cog },
+      { label: 'Fuel Type', value: vehicle.fuel || 'N/A', icon: Fuel },
+      { label: 'Transmission', value: vehicle.transmission || 'N/A', icon: Cog },
+      { label: 'Odometer Reading', value: vehicle.odometer ? `${Number(vehicle.odometer).toLocaleString('en-IN')} km` : 'N/A', icon: Gauge },
+      { label: 'Insurance Status', value: vehicle.insuranceStatus || 'Expired / N/A', icon: ShieldCheck },
+      { label: 'Location', value: vehicle.location || 'N/A', icon: ShieldCheck },
+      { label: 'Base Price', value: inr(vehicle.basePrice || 0), icon: TrendingUp },
     ];
   }, [vehicle]);
 
@@ -1157,23 +1157,27 @@ export const DealerFreelancerVehicleDetailScreen: React.FC<DealerFreelancerVehic
       >
         <View style={styles.contentBody}>
           {/* SECTION 1: TOP SIDE - Basic Information Overview & Specifications */}
-          <View style={[styles.panel, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <View style={styles.panelHeaderRow}>
+          <View style={[styles.panel, styles.overviewPanel, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <View style={[styles.panelHeaderRow, styles.overviewPanelHeaderRow]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.panelTitle, { color: colors.foreground }]}>Vehicle Overview & Basic Information</Text>
                 <Text style={[styles.panelSub, { color: colors.mutedForeground }]}>
-                  {vehicle.brand} {vehicle.model} {vehicle.variant} • Vehicle Overview
+                  {vehicle.brand} {vehicle.model} {vehicle.variant} • Certified Inspection
                 </Text>
               </View>
-              
+              {renderScoreBadge(vehicle.score || 88)}
             </View>
-            <View style={styles.specsGrid}>
+            <View style={[styles.specsGrid, styles.overviewSpecsGrid]}>
               {specs.map((s, idx) => {
                 const IconComp = s.icon;
                 return (
-                  <View key={idx} style={[styles.specCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
-                    <IconComp size={14} color="#FFC700" />
-                    <Text style={[styles.specLabelText, { color: colors.mutedForeground }]}>{s.label}</Text>
+                  <View key={idx} style={[styles.specCell, styles.overviewSpecCell, { backgroundColor: rowBg, borderColor: colors.border }]}>
+                    <View style={styles.specLabelRow}>
+                      <IconComp size={12} color="#FFC700" />
+                      <Text style={[styles.specLabelText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {s.label}
+                      </Text>
+                    </View>
                     <Text style={[styles.specValueText, { color: colors.foreground }]} numberOfLines={1}>
                       {s.value}
                     </Text>
@@ -2111,7 +2115,9 @@ const styles = StyleSheet.create({
   stepContent: { gap: 14 },
 
   panel: { borderWidth: 1, borderRadius: 20, padding: 16 },
+  overviewPanel: { padding: 12, borderRadius: 16 },
   panelHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
+  overviewPanelHeaderRow: { gap: 6, marginBottom: 8 },
   panelTitle: { fontSize: 14, fontWeight: '900', letterSpacing: -0.2 },
   panelSub: { fontSize: 11, fontWeight: '600', marginTop: 3 },
   scoreChip: { backgroundColor: '#FFC700', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
@@ -2120,9 +2126,12 @@ const styles = StyleSheet.create({
   emptyPanelText: { fontSize: 11, fontWeight: '700' },
 
   specsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  specCell: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderRadius: 12, padding: 10, gap: 4 },
-  specLabelText: { fontSize: 9.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 3 },
-  specValueText: { fontSize: 12.5, fontWeight: '900' },
+  overviewSpecsGrid: { gap: 6, marginTop: 8 },
+  specCell: { flexBasis: '47%', flexGrow: 1, borderWidth: 1, borderRadius: 10, padding: 8, gap: 3 },
+  overviewSpecCell: { borderRadius: 8, padding: 6, gap: 2 },
+  specLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  specLabelText: { flex: 1, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 },
+  specValueText: { fontSize: 11.5, fontWeight: '900' },
 
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   photoSlotCell: { flexBasis: '100%', width: '100%', borderWidth: 1, borderRadius: 14, padding: 11 },

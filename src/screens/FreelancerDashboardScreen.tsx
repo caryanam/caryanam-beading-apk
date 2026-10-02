@@ -57,7 +57,8 @@ export const FreelancerDashboardScreen: React.FC<FreelancerDashboardScreenProps>
         setUserName(session.name);
       }
       
-      const res = await freelancerService.getMyInspections();
+      const freelancerId = (session as any)?.freelancerId || session?.id;
+      const res = await freelancerService.getMyInspections(freelancerId ? { freelancerId } : undefined);
       if (res.success && res.data) {
         // Sort by inspection ID descending
         const sorted = [...res.data].sort((a: any, b: any) => b.inspectionId - a.inspectionId);

@@ -60,13 +60,13 @@ function formatParsedDate(date: Date): string {
   const diffMs = now.getTime() - date.getTime();
   if (diffMs < 0 || diffMs < 10000) return `Just now (${exactTime.toLowerCase()})`;
   const diffMin = Math.floor(diffMs / 60000);
-  const diffHr  = Math.floor(diffMin / 60);
+  const diffHr = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHr / 24);
   let relative = '';
-  if (diffMin <= 1)      relative = '1 min ago';
+  if (diffMin <= 1) relative = '1 min ago';
   else if (diffMin < 60) relative = `${diffMin} mins ago`;
-  else if (diffHr < 24)  relative = `${diffHr} hr${diffHr > 1 ? 's' : ''} ago`;
-  else if (diffDay < 7)  relative = `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
+  else if (diffHr < 24) relative = `${diffHr} hr${diffHr > 1 ? 's' : ''} ago`;
+  else if (diffDay < 7) relative = `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
   else relative = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   return `${relative} (${exactTime.toLowerCase()})`;
 }
@@ -124,9 +124,9 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
           setInspections(rawList);
         }
       } else {
-        const res = await freelancerService.getMyInspections();
+        const res = await adminService.getFreelancerInspections();
         let apiList: any[] = [];
-        if (res.success && res.data) {
+        if (res && res.success && res.data) {
           apiList = res.data.filter((item: any) => {
             const s = String(item.status || item.vehicleStatus || '').toUpperCase();
             return s !== 'DRAFT' && s !== 'IN_PROGRESS';
@@ -138,7 +138,8 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
             model: item.model || '',
             variant: item.variant || '',
             inspectorName: item.freelancerName || item.inspectorName || (item.inspectorId ? `Freelancer #${item.inspectorId}` : 'N/A'),
-            sourceType: 'FREELANCER'
+            sourceType: 'FREELANCER',
+            vehicleStatus: item.vehicleStatus || null,
           }));
         }
         setInspections(apiList);
@@ -214,7 +215,14 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
       list = list.filter((v) => (v.inspectorName || v.inspector || '').trim().toLowerCase() === selectedInspector.trim().toLowerCase());
     }
     if (status === 'All') return list.length;
-    return list.filter((v) => (v.status || '').toUpperCase() === status.toUpperCase()).length;
+    return list.filter((v) => {
+      const s = (v.status || '').toUpperCase();
+      const vs = (v.vehicleStatus || '').toUpperCase();
+      if (status === 'Submitted') return (s === 'SUBMITTED' || s === 'PENDING') && vs !== 'SOLD OUT' && vs !== 'ENDED';
+      if (status === 'Approved') return s === 'APPROVED' || vs === 'LIVE' || vs === 'SOLD OUT' || vs === 'ENDED';
+      if (status === 'Rejected') return s === 'REJECTED';
+      return false;
+    }).length;
   };
 
   const filteredInspections = inspections.filter((ins) => {
@@ -226,8 +234,18 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
       }
     }
     // Status filter
-    if (statusFilter !== 'All' && (ins.status || '').toUpperCase() !== statusFilter.toUpperCase()) {
-      return false;
+    if (statusFilter !== 'All') {
+      const s = (ins.status || '').toUpperCase();
+      const vs = (ins.vehicleStatus || '').toUpperCase();
+      if (statusFilter === 'Submitted' && ((s !== 'SUBMITTED' && s !== 'PENDING') || vs === 'SOLD OUT' || vs === 'ENDED')) {
+        return false;
+      }
+      if (statusFilter === 'Approved' && (s !== 'APPROVED' && vs !== 'LIVE' && vs !== 'SOLD OUT' && vs !== 'ENDED')) {
+        return false;
+      }
+      if (statusFilter === 'Rejected' && s !== 'REJECTED') {
+        return false;
+      }
     }
     // Search filter — matches brand, model, variant, vehicleNumber, ownerName, inspectorName
     if (searchQuery.trim()) {
@@ -245,22 +263,26 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
     return true;
   });
 
-  const getStatusMeta = (status: string) => {
+  const getStatusMeta = (status: string, vehicleStatus?: string) => {
+    const vs = (vehicleStatus || '').toUpperCase();
+    if (vs === 'LIVE') return { bg: 'rgba(16,185,129,0.13)', text: '#10B981', border: 'rgba(16,185,129,0.25)', stripe: '#10B981', label: 'Live' };
+    if (vs === 'SOLD OUT' || vs === 'SOLD') return { bg: 'rgba(244,63,94,0.13)', text: '#F43F5E', border: 'rgba(244,63,94,0.25)', stripe: '#F43F5E', label: 'Sold Out' };
+    if (vs === 'ENDED' || vs === 'AUCTION ENDED' || vs === 'AUCTION_ENDED' || vs === 'COMPLETED') return { bg: 'rgba(148,163,184,0.13)', text: '#94A3B8', border: 'rgba(148,163,184,0.25)', stripe: '#94A3B8', label: 'Auction Ended' };
     const s = status.toUpperCase();
-    if (s === 'APPROVED') return { bg: 'rgba(16,185,129,0.13)', text: '#10B981', border: 'rgba(16,185,129,0.25)', stripe: '#10B981' };
-    if (s === 'REJECTED') return { bg: 'rgba(244,63,94,0.13)', text: '#F43F5E', border: 'rgba(244,63,94,0.25)', stripe: '#F43F5E' };
-    if (s === 'SUBMITTED') return { bg: 'rgba(245,158,11,0.13)', text: '#F59E0B', border: 'rgba(245,158,11,0.25)', stripe: '#FFC700' };
-    return { bg: 'rgba(148,163,184,0.13)', text: '#94A3B8', border: 'rgba(148,163,184,0.25)', stripe: '#94A3B8' };
+    if (s === 'APPROVED') return { bg: 'rgba(16,185,129,0.13)', text: '#10B981', border: 'rgba(16,185,129,0.25)', stripe: '#10B981', label: 'Approved' };
+    if (s === 'REJECTED') return { bg: 'rgba(244,63,94,0.13)', text: '#F43F5E', border: 'rgba(244,63,94,0.25)', stripe: '#F43F5E', label: 'Rejected' };
+    if (s === 'SUBMITTED') return { bg: 'rgba(245,158,11,0.13)', text: '#F59E0B', border: 'rgba(245,158,11,0.25)', stripe: '#FFC700', label: 'Submitted' };
+    return { bg: 'rgba(148,163,184,0.13)', text: '#94A3B8', border: 'rgba(148,163,184,0.25)', stripe: '#94A3B8', label: s || 'Draft' };
   };
 
   const inr = (val: number) => '₹' + val.toLocaleString('en-IN');
 
   // Theme-aware card layer colors
-  const cardBg       = isDark ? '#12141C' : '#FFFFFF';
+  const cardBg = isDark ? '#12141C' : '#FFFFFF';
   const cardHeaderBg = isDark ? '#1A1D28' : '#EEF0F6';
-  const specPanelBg  = isDark ? '#0F111A' : '#E8EBF3';
-  const specBorder   = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(100,110,140,0.15)';
-  const footerBg     = isDark ? '#0D0E14' : '#F2F4FA';
+  const specPanelBg = isDark ? '#0F111A' : '#E8EBF3';
+  const specBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(100,110,140,0.15)';
+  const footerBg = isDark ? '#0D0E14' : '#F2F4FA';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -284,13 +306,13 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
 
       {/* Tab Switcher */}
       <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', borderRadius: 20, marginHorizontal: 16, marginTop: 12, marginBottom: 8, padding: 4 }}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'inspector' ? '#FFC700' : 'transparent', alignItems: 'center' }}
           onPress={() => { setActiveTab('inspector'); setSelectedInspector(null); }}
         >
           <Text style={{ fontSize: 13, fontWeight: '700', color: activeTab === 'inspector' ? '#0D0E12' : colors.mutedForeground }}>Inspectors</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={{ flex: 1, paddingVertical: 10, borderRadius: 16, backgroundColor: activeTab === 'freelancer' ? '#FFC700' : 'transparent', alignItems: 'center' }}
           onPress={() => { setActiveTab('freelancer'); setSelectedInspector(null); }}
         >
@@ -350,8 +372,8 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
             )}
           </View>
           <TouchableOpacity
-            style={{ 
-              backgroundColor: isDark ? '#1A1D28' : '#F0F2F7', 
+            style={{
+              backgroundColor: isDark ? '#1A1D28' : '#F0F2F7',
               borderColor: selectedInspector ? '#FFC700' : colors.border,
               borderWidth: 1,
               borderRadius: 12,
@@ -403,7 +425,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
           showsVerticalScrollIndicator={false}
         >
           {filteredInspections.map((v, idx) => {
-            const meta = getStatusMeta(v.status || 'DRAFT');
+            const meta = getStatusMeta(v.status || 'DRAFT', v.vehicleStatus);
             const dateStr = formatIndianDateTime(v.submittedAt);
             const isActionable = (v.status || '').toUpperCase() === 'SUBMITTED';
             // Sequential front-end display ID (matches web: cell: (_, idx) => `#${idx}`)
@@ -452,7 +474,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
                   </View>
                   <View style={[styles.statusChip, { backgroundColor: meta.bg, borderColor: meta.border }]}>
                     <View style={[styles.statusDot, { backgroundColor: meta.stripe }]} />
-                    <Text style={[styles.statusText, { color: meta.text }]}>{(v.status || 'DRAFT').toUpperCase()}</Text>
+                    <Text style={[styles.statusText, { color: meta.text }]}>{meta.label}</Text>
                   </View>
                 </View>
 
@@ -556,7 +578,7 @@ export const AdminVehiclesScreen: React.FC<AdminVehiclesScreenProps> = ({ naviga
                     </>
                   )}
 
-                                    <TouchableOpacity
+                  <TouchableOpacity
                     style={[styles.pdfBtn, { backgroundColor: isDark ? '#1A1D28' : '#E8EBF0', marginRight: 6 }]}
                     onPress={() => navigation.navigate(activeTab === 'freelancer' ? 'AdminFreelancerVehicleDetail' : 'AdminVehicleDetail', { inspectionId: v.inspectionId, id: v.inspectionId, vehicleId: v.inspectionId })}
                     activeOpacity={0.75}

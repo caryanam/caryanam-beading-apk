@@ -189,7 +189,21 @@ export const DealerFreelancerVehiclesScreen: React.FC<DealerFreelancerVehiclesSc
 
   const onRefresh = () => fetchFreelancerVehicles(true);
 
-  const mappedVehicles = useMemo(() => inspections.map((item) => mapVehicle(item, dealerBids)), [inspections, dealerBids]);
+  const mappedVehicles = useMemo(() => {
+    return inspections
+      .map((item) => mapVehicle(item, dealerBids))
+      .filter((v) => {
+        const isEndedOrSold =
+          v.auction === 'sold out' ||
+          v.auction === 'ended' ||
+          (v.endsAt && Number(v.endsAt) <= Date.now());
+        if (isEndedOrSold) {
+          // If auction ended or sold out, only display to the winning dealer
+          return v.userBidStatus === 'top';
+        }
+        return true;
+      });
+  }, [inspections, dealerBids]);
 
 const statusOptions = [
   { key: 'All', label: 'All' },

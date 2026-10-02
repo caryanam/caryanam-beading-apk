@@ -12,8 +12,13 @@ export const adminService = {
 
   // Get all freelancer inspections for admin
   async getFreelancerInspections() {
-    const res = await apiClient.get('/api/freelancer/inspection');
-    return res.data;
+    try {
+      const res = await apiClient.get('/api/admin/freelancer-inspections');
+      return res.data;
+    } catch {
+      const fallback = await apiClient.get('/api/freelancer/inspection?all=true');
+      return fallback.data;
+    }
   },
 
   // Get admin notifications
@@ -91,10 +96,17 @@ export const adminService = {
     return res.data;
   },
 
+  // Delete multiple registered dealer accounts (only if 0 bids and 0 won)
+  async deleteMultipleDealers(ids: number[]) {
+    const res = await apiClient.post('/api/admin/dealers/delete-multiple', { ids });
+    return res.data;
+  },
+
   // Import dealers from an Excel file (multipart/form-data)
   async importDealersExcel(formData: FormData) {
     const res = await apiClient.post('/api/admin/dealers/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     });
     return res.data;
   },

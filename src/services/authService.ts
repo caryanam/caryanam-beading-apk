@@ -13,6 +13,7 @@ const publicClient = axios.create({
 
 export interface UserSession {
   id?: number;
+  freelancerId?: number;
   name: string;
   email: string;
   role: 'admin' | 'dealer' | 'inspector' | 'freelancer';
@@ -44,6 +45,7 @@ export const authService = {
   async saveSessionWithRole(authData: any, chosenRole: 'dealer' | 'freelancer' | 'admin' | 'inspector'): Promise<UserSession> {
     const session: UserSession = {
       id: authData.id,
+      freelancerId: authData.freelancerId || (chosenRole === 'freelancer' ? authData.id : undefined),
       name: authData.fullName || authData.dealershipName || (authData.email ? authData.email.split('@')[0] : authData.mobileNumber || 'User'),
       email: authData.email || '',
       role: chosenRole as any,
